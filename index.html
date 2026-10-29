@@ -1,916 +1,1261 @@
-<!doctype html>
-<html lang="es">
+<!DOCTYPE html>
+<html lang="es-CU">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
-<meta name="theme-color" content="#087f5b">
-<meta name="description" content="Contador CUP de efectivo con historial, informes y copias de seguridad.">
-<link rel="manifest" href="manifest.webmanifest">
-<link rel="icon" href="icon.svg" type="image/svg+xml">
-<title>Contador CUP</title>
-<style>
-:root{color-scheme:light;--bg:#f3f6f8;--panel:#fff;--ink:#17212b;--muted:#637381;--line:#dbe3e8;--accent:#087f5b;--soft:#e1f5ed;--danger:#b42318;--shadow:0 4px 18px #10203012}
-body.dark{color-scheme:dark;--bg:#101820;--panel:#1a2631;--ink:#f1f5f9;--muted:#a9b6c2;--line:#344350;--accent:#24b486;--soft:#153b30;--danger:#ff8078;--shadow:0 4px 18px #0004}
-*{box-sizing:border-box}
-html{scroll-behavior:smooth}
-body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.4 system-ui,-apple-system,Segoe UI,Roboto,Arial;touch-action:pan-y}
-button,input,select,textarea{font:inherit}
-button{border:0;border-radius:11px;padding:11px 13px;background:var(--accent);color:white;font-weight:650;cursor:pointer;min-height:43px}
-button.secondary{background:var(--soft);color:var(--ink)}
-button.danger{background:var(--danger);color:#fff}
-button:disabled{opacity:.45}
-.top{position:sticky;top:0;z-index:10;background:var(--panel);border-bottom:1px solid var(--line);padding:10px max(12px,env(safe-area-inset-left));box-shadow:var(--shadow)}
-.toprow{max-width:850px;margin:auto;display:flex;align-items:center;justify-content:space-between;gap:12px}
-.brand{font-weight:850;font-size:19px}
-.total{font-size:clamp(23px,6vw,34px);font-weight:900;color:var(--accent);white-space:nowrap}
-.sub{color:var(--muted);font-size:12px}
-.wrap{max-width:850px;margin:auto;padding:12px 12px 90px}
-.nav{display:flex;gap:7px;overflow:auto;padding:8px 0 12px}
-.nav button{white-space:nowrap;flex-shrink:0}
-.nav button.active{outline:2px solid var(--ink);outline-offset:1px}
-.panel,.card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:14px;margin:10px 0;box-shadow:var(--shadow)}
-h1{font-size:24px;margin:5px 0}
-h2{font-size:19px;margin:0 0 10px}
-h3{font-size:16px;margin:8px 0}
-.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
-.denom{border:1px solid var(--line);border-radius:13px;padding:10px;min-width:0}
-.value{font-size:18px;font-weight:850;color:var(--accent);margin-bottom:7px}
-.qty{width:100%;min-width:0;padding:10px;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--ink);font-size:22px;font-weight:750;text-align:center}
-.quick{display:flex;gap:5px;margin-top:7px}
-.quick button{flex:1;padding:7px 2px;min-height:35px;font-size:13px}
-.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
-.row>*{flex:1 1 130px}
-.field{display:flex;flex-direction:column;gap:5px;margin:8px 0}
-.field input,.field select,.field textarea,.search{width:100%;border:1px solid var(--line);border-radius:10px;padding:10px;background:var(--bg);color:var(--ink)}
-.btns{display:flex;gap:7px;flex-wrap:wrap;margin-top:10px}
-.btns button{flex:1 1 125px}
-.muted{color:var(--muted)}
-.badge{display:inline-block;border-radius:999px;padding:3px 8px;background:var(--soft);font-size:12px}
-.record{border-top:1px solid var(--line);padding:12px 0}
-.record:first-child{border-top:0}
-.recordtop{display:flex;justify-content:space-between;gap:8px;align-items:start}
-.record strong{font-size:18px}
-.smallbtn{padding:7px 9px;min-height:34px;font-size:13px}
-.hidden{display:none!important}
-.notice{background:var(--soft);border-radius:10px;padding:10px;margin:8px 0;overflow-wrap:anywhere}
-.status{font-size:12px;color:var(--muted);margin-top:8px}
-.check{display:flex;align-items:center;gap:8px;padding:7px 0}
-.check input{width:20px;height:20px}
-.chart{display:flex;align-items:end;gap:5px;min-height:150px;border-bottom:1px solid var(--line);padding:10px 0}
-.barwrap{flex:1;min-width:0;text-align:center;font-size:10px;color:var(--muted)}
-.bar{background:var(--accent);border-radius:5px 5px 0 0;min-height:2px;width:100%}
-.bottomnote{font-size:12px;color:var(--muted);padding:15px 0}
-.statgrid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
-.stat{padding:10px;border:1px solid var(--line);border-radius:10px}
-.stat b{display:block;font-size:19px;color:var(--accent)}
-.modal{position:fixed;inset:0;z-index:30;background:#0009;display:grid;place-items:center;padding:16px}
-.modalbox{width:min(480px,100%);max-height:85vh;overflow:auto;background:var(--panel);border-radius:16px;padding:18px}
-canvas{max-width:100%}
-@media(min-width:650px){.grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
-@media print{.top,.nav,.btns,button,.bottomnote{display:none!important}body{background:#fff;color:#000}.panel,.card{box-shadow:none;border:1px solid #ccc;break-inside:avoid}}
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="theme-color" content="#1455c0">
+    <meta name="description" content="Contador de efectivo CUP de Nova Apps. Cuenta, registra y administra efectivo con historial, informes y copias de seguridad.">
+    <meta name="color-scheme" content="light dark">
+
+    <title>Contador de Efectivo CUP | Nova Apps</title>
+
+    <link rel="icon" href="./icon.svg" type="image/svg+xml">
+    <link rel="manifest" href="./manifest.webmanifest">
+
+    <link rel="stylesheet" href="./assets/css/variables.css">
+    <link rel="stylesheet" href="./assets/css/base.css">
+    <link rel="stylesheet" href="./assets/css/layout.css">
+    <link rel="stylesheet" href="./assets/css/components.css">
+    <link rel="stylesheet" href="./assets/css/responsive.css">
+
+    <style>
+        [hidden] {
+            display: none !important;
+        }
+
+        .app-header {
+            position: sticky;
+            top: 0;
+            z-index: 50;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            padding: 12px 16px;
+            background: var(--surface, #fff);
+            border-bottom: 1px solid var(--border, #dce2eb);
+        }
+
+        .app-brand {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            min-width: 0;
+        }
+
+        .app-brand img {
+            width: 42px;
+            height: 42px;
+            flex-shrink: 0;
+        }
+
+        .app-brand h1 {
+            margin: 0;
+            font-size: 1rem;
+            line-height: 1.3;
+        }
+
+        .app-brand p {
+            margin: 2px 0 0;
+            font-size: .78rem;
+            color: var(--text-muted, #657187);
+        }
+
+        .header-actions,
+        .toolbar,
+        .form-actions,
+        .list-item-actions {
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .app-layout {
+            display: grid;
+            grid-template-columns: 235px minmax(0, 1fr);
+            min-height: calc(100vh - 67px);
+        }
+
+        .app-sidebar {
+            padding: 16px 12px;
+            border-right: 1px solid var(--border, #dce2eb);
+            background: var(--surface, #fff);
+        }
+
+        .sidebar-nav {
+            display: grid;
+            gap: 5px;
+        }
+
+        .sidebar-nav button {
+            width: 100%;
+            text-align: left;
+            justify-content: flex-start;
+        }
+
+        .sidebar-nav button.is-active {
+            background: var(--primary, #1455c0);
+            color: white;
+        }
+
+        .app-main {
+            min-width: 0;
+            padding: 22px;
+        }
+
+        .page-heading {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+
+        .page-heading h2 {
+            margin: 0;
+        }
+
+        .page-heading p {
+            margin: 6px 0 0;
+            color: var(--text-muted, #657187);
+        }
+
+        .page-panel {
+            display: grid;
+            gap: 18px;
+        }
+
+        .panel {
+            padding: 18px;
+            border: 1px solid var(--border, #dce2eb);
+            border-radius: 14px;
+            background: var(--surface, #fff);
+            min-width: 0;
+        }
+
+        .panel h3 {
+            margin-top: 0;
+        }
+
+        .panel-heading {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 14px;
+        }
+
+        .panel-heading h3 {
+            margin: 0;
+        }
+
+        .stat-grid {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 12px;
+        }
+
+        .stat-card {
+            padding: 16px;
+            border: 1px solid var(--border, #dce2eb);
+            border-radius: 12px;
+            background: var(--surface, #fff);
+            min-width: 0;
+        }
+
+        .stat-card span {
+            display: block;
+            color: var(--text-muted, #657187);
+            font-size: .85rem;
+        }
+
+        .stat-card strong {
+            display: block;
+            margin-top: 8px;
+            font-size: clamp(1.1rem, 3vw, 1.6rem);
+            overflow-wrap: anywhere;
+        }
+
+        .denomination-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 12px;
+        }
+
+        .denomination-card {
+            min-width: 0;
+            padding: 14px;
+            border: 1px solid var(--border, #dce2eb);
+            border-radius: 12px;
+            background: var(--surface, #fff);
+        }
+
+        .denomination-value {
+            font-size: 1.05rem;
+            font-weight: 700;
+        }
+
+        .denomination-controls {
+            display: grid;
+            grid-template-columns: 42px minmax(0, 1fr) 42px;
+            align-items: center;
+            gap: 8px;
+            margin-top: 12px;
+        }
+
+        .denomination-controls input {
+            min-width: 0;
+            width: 100%;
+            text-align: center;
+            font-weight: 700;
+        }
+
+        .denomination-subtotal {
+            margin-top: 12px;
+            display: flex;
+            justify-content: space-between;
+            gap: 8px;
+            flex-wrap: wrap;
+            font-size: .9rem;
+        }
+
+        .btn-icon {
+            min-width: 40px;
+            min-height: 40px;
+            border: 1px solid var(--border, #dce2eb);
+            border-radius: 9px;
+            background: var(--surface, #fff);
+            color: var(--text, #172033);
+            font-size: 1.3rem;
+            cursor: pointer;
+        }
+
+        .btn-icon:hover {
+            background: var(--surface-hover, #edf3fc);
+        }
+
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 14px;
+        }
+
+        .form-field {
+            display: grid;
+            gap: 6px;
+            min-width: 0;
+        }
+
+        .form-field.full-width {
+            grid-column: 1 / -1;
+        }
+
+        .form-field label {
+            font-size: .9rem;
+            font-weight: 600;
+        }
+
+        .form-field input,
+        .form-field select,
+        .form-field textarea {
+            box-sizing: border-box;
+            width: 100%;
+            min-width: 0;
+        }
+
+        .form-field textarea {
+            min-height: 90px;
+            resize: vertical;
+        }
+
+        .list-stack {
+            display: grid;
+            gap: 10px;
+        }
+
+        .list-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 14px;
+            flex-wrap: wrap;
+            padding: 14px;
+            border: 1px solid var(--border, #dce2eb);
+            border-radius: 10px;
+            background: var(--surface, #fff);
+        }
+
+        .list-item-content {
+            min-width: 0;
+            overflow-wrap: anywhere;
+        }
+
+        .list-item-content > * {
+            margin: 0 0 5px;
+        }
+
+        .list-item-content > *:last-child {
+            margin-bottom: 0;
+        }
+
+        .text-muted {
+            color: var(--text-muted, #657187);
+        }
+
+        .text-small {
+            font-size: .83rem;
+        }
+
+        .numeric {
+            font-variant-numeric: tabular-nums;
+        }
+
+        .empty-state {
+            padding: 24px 14px;
+            text-align: center;
+            border: 1px dashed var(--border, #dce2eb);
+            border-radius: 12px;
+        }
+
+        .empty-state-title {
+            margin-top: 0;
+        }
+
+        .table-wrapper {
+            width: 100%;
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th,
+        td {
+            padding: 11px;
+            text-align: left;
+            border-bottom: 1px solid var(--border, #dce2eb);
+            white-space: nowrap;
+        }
+
+        th {
+            font-size: .85rem;
+        }
+
+        .machine-card {
+            display: grid;
+            grid-template-columns: 100px minmax(0, 1fr);
+            gap: 14px;
+            padding: 14px;
+            border: 1px solid var(--border, #dce2eb);
+            border-radius: 12px;
+            background: var(--surface, #fff);
+        }
+
+        .machine-image {
+            display: grid;
+            place-items: center;
+            min-height: 90px;
+            border-radius: 8px;
+            background: var(--surface-hover, #edf3fc);
+            overflow: hidden;
+            font-size: .75rem;
+            text-align: center;
+        }
+
+        .machine-image img {
+            width: 100%;
+            height: 100%;
+            min-height: 90px;
+            object-fit: contain;
+        }
+
+        .machine-details {
+            min-width: 0;
+            overflow-wrap: anywhere;
+        }
+
+        .machine-details h3,
+        .machine-details p {
+            margin: 0 0 7px;
+        }
+
+        .machine-card .list-item-actions {
+            grid-column: 1 / -1;
+        }
+
+        .connection-status {
+            font-weight: 600;
+        }
+
+        .toast-container {
+            position: fixed;
+            z-index: 1000;
+            right: 16px;
+            bottom: 16px;
+            display: grid;
+            gap: 8px;
+            max-width: min(420px, calc(100vw - 32px));
+        }
+
+        .toast {
+            padding: 13px 16px;
+            border: 1px solid var(--border, #dce2eb);
+            border-radius: 10px;
+            background: var(--surface, #fff);
+            box-shadow: 0 5px 24px #0002;
+            overflow-wrap: anywhere;
+        }
+
+        .toast-error {
+            border-color: #d94848;
+        }
+
+        .toast-success {
+            border-color: #238653;
+        }
+
+        .toast-warning {
+            border-color: #c58a18;
+        }
+
+        .app-footer {
+            margin-top: 26px;
+            padding: 18px 0;
+            border-top: 1px solid var(--border, #dce2eb);
+            color: var(--text-muted, #657187);
+            font-size: .82rem;
+            text-align: center;
+        }
+
+        .app-footer a {
+            color: var(--primary, #1455c0);
+        }
+
+        .danger-zone {
+            border-color: #d94848;
+        }
+
+        .code-preview {
+            display: block;
+            max-height: 320px;
+            overflow: auto;
+            padding: 12px;
+            border-radius: 8px;
+            background: var(--surface-hover, #edf3fc);
+            white-space: pre-wrap;
+            overflow-wrap: anywhere;
+            font-size: .8rem;
+        }
+
+        .status-note {
+            padding: 12px;
+            border-radius: 8px;
+            background: var(--surface-hover, #edf3fc);
+            font-size: .9rem;
+        }
+
+        @media (max-width: 800px) {
+            .app-layout {
+                grid-template-columns: minmax(0, 1fr);
+            }
+
+            .app-sidebar {
+                border-right: 0;
+                border-bottom: 1px solid var(--border, #dce2eb);
+                padding: 8px;
+            }
+
+            .sidebar-nav {
+                display: flex;
+                gap: 6px;
+                overflow-x: auto;
+                padding-bottom: 3px;
+            }
+
+            .sidebar-nav button {
+                width: auto;
+                flex: 0 0 auto;
+                white-space: nowrap;
+            }
+
+            .app-main {
+                padding: 14px;
+            }
+
+            .stat-grid {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+        }
+
+        @media (max-width: 480px) {
+            .app-header {
+                padding: 10px;
+            }
+
+            .app-brand img {
+                width: 36px;
+                height: 36px;
+            }
+
+            .app-brand h1 {
+                font-size: .9rem;
+            }
+
+            .app-brand p {
+                font-size: .72rem;
+            }
+
+            .header-actions {
+                gap: 5px;
+            }
+
+            .header-actions .btn {
+                padding: 8px;
+                font-size: .8rem;
+            }
+
+            .app-main {
+                padding: 12px;
+            }
+
+            .panel {
+                padding: 13px;
+            }
+
+            .denomination-grid,
+            .form-grid {
+                grid-template-columns: minmax(0, 1fr);
+            }
+
+            .stat-grid {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+                gap: 8px;
+            }
+
+            .stat-card {
+                padding: 11px;
+            }
+
+            .machine-card {
+                grid-template-columns: 75px minmax(0, 1fr);
+                gap: 10px;
+            }
+
+            .page-heading {
+                flex-direction: column;
+            }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            *,
+            *::before,
+            *::after {
+                scroll-behavior: auto !important;
+                animation-duration: .01ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: .01ms !important;
+            }
+        }
+    </style>
 </head>
+
 <body>
-<header class="top">
-  <div class="toprow">
-    <div>
-      <div class="brand">Contador CUP</div>
-      <div id="liveStatus" class="sub">Guardado en el dispositivo</div>
-    </div>
-    <div style="text-align:right">
-      <div id="grandTotal" class="total">0 CUP</div>
-      <div id="unitTotal" class="sub">0 unidades</div>
-    </div>
-  </div>
-</header>
+    <div id="app">
+        <header class="app-header">
+            <div class="app-brand">
+                <img src="./icon.svg" alt="" width="42" height="42">
+                <div>
+                    <h1>Contador de Efectivo CUP</h1>
+                    <p>Nova Apps</p>
+                </div>
+            </div>
 
-<main class="wrap">
-<div class="nav" role="navigation" aria-label="Secciones">
-<button class="active" data-tab="count">Contar</button>
-<button data-tab="history">Historial</button>
-<button data-tab="reports">Informes</button>
-<button data-tab="cash">Caja</button>
-<button data-tab="machines">Máquinas</button>
-<button data-tab="settings">Ajustes y copias</button>
-</div>
+            <div class="header-actions">
+                <button class="btn btn-secondary" type="button" data-action="theme-system">
+                    Tema
+                </button>
+                <button class="btn btn-secondary" type="button" data-action="open-nova-home">
+                    Nova Apps
+                </button>
+            </div>
+        </header>
 
-<section id="tab-count">
-  <div class="panel">
-    <div class="row">
-      <div class="field">
-        <label for="label">Nombre del conteo</label>
-        <input id="label" placeholder="Ej.: Cierre de caja">
-      </div>
-      <div class="field">
-        <label for="tag">Etiqueta / turno / caja</label>
-        <input id="tag" placeholder="Ej.: Caja 1, turno tarde">
-      </div>
-    </div>
-    <div class="row">
-      <div class="field">
-        <label for="target">Importe esperado (CUP)</label>
-        <input id="target" type="number" min="0" inputmode="numeric" placeholder="Opcional">
-      </div>
-      <div class="field">
-        <label for="operator">Responsable</label>
-        <input id="operator" placeholder="Opcional">
-      </div>
-    </div>
-    <div id="targetDiff" class="notice hidden"></div>
-  </div>
+        <div class="app-layout">
+            <aside class="app-sidebar" aria-label="Navegación principal">
+                <nav class="sidebar-nav">
+                    <button class="btn btn-secondary is-active" type="button" data-action="navigate" data-view="counter" aria-current="page">Contador</button>
+                    <button class="btn btn-secondary" type="button" data-action="navigate" data-view="drafts">Borradores</button>
+                    <button class="btn btn-secondary" type="button" data-action="navigate" data-view="history">Historial</button>
+                    <button class="btn btn-secondary" type="button" data-action="navigate" data-view="comparison">Comparación</button>
+                    <button class="btn btn-secondary" type="button" data-action="navigate" data-view="reports">Informes</button>
+                    <button class="btn btn-secondary" type="button" data-action="navigate" data-view="cash">Caja</button>
+                    <button class="btn btn-secondary" type="button" data-action="navigate" data-view="machines">Máquinas</button>
+                    <button class="btn btn-secondary" type="button" data-action="navigate" data-view="denominations">Denominaciones</button>
+                    <button class="btn btn-secondary" type="button" data-action="navigate" data-view="settings">Configuración</button>
+                    <button class="btn btn-secondary" type="button" data-action="navigate" data-view="backup">Copias de seguridad</button>
+                    <button class="btn btn-secondary" type="button" data-action="navigate" data-view="about">Acerca de</button>
+                    <button class="btn btn-secondary" type="button" data-action="navigate" data-view="nova-apps">Otras aplicaciones</button>
+                </nav>
+            </aside>
 
-  <div class="panel">
-    <h2>Billetes y monedas</h2>
-    <div class="sub">Toca la cantidad para reemplazarla. Los cambios se guardan automáticamente en este dispositivo.</div>
-    <div id="denominations" class="grid" style="margin-top:12px"></div>
-    <div class="btns">
-      <button id="saveRecord">Guardar conteo</button>
-      <button class="secondary" id="newCount">Nuevo conteo</button>
-      <button class="secondary" id="clearCount">Poner cantidades a cero</button>
-      <button class="secondary" id="undo">Deshacer</button>
-      <button class="secondary" id="redo">Rehacer</button>
-    </div>
-    <div class="status" id="countStatus">Borrador guardado automáticamente.</div>
-  </div>
-</section>
+            <main class="app-main">
+                <div id="app-error" class="panel danger-zone" role="alert" hidden></div>
 
-<section id="tab-history" class="hidden">
-  <div class="panel">
-    <h2>Historial de conteos</h2>
-    <input id="historySearch" class="search" placeholder="Buscar por nombre, etiqueta o responsable">
-    <div class="row">
-      <div class="field"><label>Desde</label><input id="dateFrom" type="date"></div>
-      <div class="field"><label>Hasta</label><input id="dateTo" type="date"></div>
-    </div>
-    <div class="row">
-      <div class="field"><label>Total mínimo</label><input id="minTotal" type="number" min="0"></div>
-      <div class="field"><label>Total máximo</label><input id="maxTotal" type="number" min="0"></div>
-    </div>
-    <div class="btns">
-      <button id="filterHistory">Aplicar filtros</button>
-      <button class="secondary" id="resetFilters">Limpiar filtros</button>
-      <button class="secondary" id="exportCsv">Exportar CSV</button>
-    </div>
-    <div id="historyList"></div>
-  </div>
-</section>
+                <section data-view-panel="counter" class="page-panel">
+                    <div class="page-heading">
+                        <div>
+                            <h2 id="page-title">Contador de efectivo</h2>
+                            <p>Introduce las cantidades para calcular el efectivo total.</p>
+                        </div>
+                    </div>
 
-<section id="tab-reports" class="hidden">
-  <div class="panel">
-    <h2>Informes</h2>
-    <div class="row">
-      <div class="field">
-        <label>Periodo</label>
-        <select id="reportPeriod">
-          <option value="day">Últimos 7 días</option>
-          <option value="month">Últimos 30 días</option>
-          <option value="year">Últimos 12 meses</option>
-          <option value="all">Todo el historial</option>
-        </select>
-      </div>
-      <div class="field">
-        <label>Informe</label>
-        <select id="reportKind">
-          <option value="total">Importe por conteo</option>
-          <option value="units">Unidades por conteo</option>
-        </select>
-      </div>
-    </div>
-    <div id="reportStats" class="statgrid"></div>
-    <div id="chart" class="chart"></div>
-    <div class="btns">
-      <button id="printReport">Imprimir / Guardar PDF</button>
-      <button class="secondary" id="exportJson">Copia completa JSON</button>
-    </div>
-  </div>
-</section>
+                    <div class="stat-grid">
+                        <article class="stat-card">
+                            <span>Total contado</span>
+                            <strong id="counter-total">0,00 CUP</strong>
+                        </article>
+                        <article class="stat-card">
+                            <span>Total de billetes</span>
+                            <strong id="counter-bills">0</strong>
+                        </article>
+                        <article class="stat-card">
+                            <span>Denominaciones activas</span>
+                            <strong id="counter-denomination-count">0</strong>
+                        </article>
+                    </div>
 
-<section id="tab-cash" class="hidden">
-  <div class="panel">
-    <h2>Control de caja</h2>
-    <p class="muted">Registra movimientos para calcular el saldo esperado. Los registros guardados no se alteran; los movimientos quedan como entradas nuevas.</p>
-    <div class="field">
-      <label>Tipo de movimiento</label>
-      <select id="movementType">
-        <option value="in">Entrada</option>
-        <option value="out">Salida</option>
-      </select>
-    </div>
-    <div class="field">
-      <label>Importe (CUP)</label>
-      <input id="movementAmount" type="number" min="1" inputmode="numeric">
-    </div>
-    <div class="field">
-      <label>Motivo</label>
-      <input id="movementReason" placeholder="Motivo del movimiento">
-    </div>
-    <button id="addMovement">Registrar movimiento</button>
-    <hr>
-    <div class="field">
-      <label>Saldo inicial (CUP)</label>
-      <input id="openingBalance" type="number" min="0" inputmode="numeric">
-    </div>
-    <button id="saveOpening" class="secondary">Guardar saldo inicial</button>
-    <div id="cashSummary" class="statgrid" style="margin-top:12px"></div>
-    <div id="movementList"></div>
-  </div>
-</section>
+                    <section class="panel">
+                        <div class="panel-heading">
+                            <h3>Conteo actual</h3>
+                            <span id="current-draft-name" class="text-muted">Conteo sin guardar</span>
+                        </div>
 
-<section id="tab-machines" class="hidden">
-  <div class="panel">
-    <h2>Centro de máquinas contadoras</h2>
-    <div class="notice">La compatibilidad depende del modelo y del protocolo del fabricante. Ningún equipo se marcará como compatible hasta verificarlo físicamente.</div>
-    <div class="field"><label>Marca</label><input id="machineBrand" placeholder="Marca"></div>
-    <div class="field"><label>Modelo</label><input id="machineModel" placeholder="Modelo exacto"></div>
-    <div class="field">
-      <label>Conexión</label>
-      <select id="machineConnection">
-        <option>Bluetooth BLE</option>
-        <option>Bluetooth clásico / SPP</option>
-        <option>USB / Serial</option>
-        <option>Wi-Fi / LAN</option>
-        <option>Archivo exportado</option>
-        <option>Otra / desconocida</option>
-      </select>
-    </div>
-    <div class="field">
-      <label>Protocolo o notas</label>
-      <textarea id="machineNotes" rows="2" placeholder="Manual, protocolo, pruebas realizadas…"></textarea>
-    </div>
-    <button id="addMachine">Registrar máquina</button>
-    <div id="machineList"></div>
-  </div>
-</section>
+                        <div class="toolbar">
+                            <button id="undo-button" class="btn btn-secondary" type="button" data-action="undo" disabled>Deshacer</button>
+                            <button id="redo-button" class="btn btn-secondary" type="button" data-action="redo" disabled>Rehacer</button>
+                            <button class="btn btn-secondary" type="button" data-action="reset-counter">Limpiar conteo</button>
+                        </div>
 
-<section id="tab-settings" class="hidden">
-  <div class="panel">
-    <h2>Ajustes</h2>
-    <div class="check"><input id="darkMode" type="checkbox"><label for="darkMode">Modo oscuro</label></div>
-    <div class="check"><input id="vibration" type="checkbox"><label for="vibration">Vibración al usar controles (si está disponible)</label></div>
-    <div class="check"><input id="warnLarge" type="checkbox" checked><label for="warnLarge">Avisar de cantidades inusualmente grandes</label></div>
-    <div class="field">
-      <label>Tamaño de texto</label>
-      <select id="textSize">
-        <option value="16">Normal</option>
-        <option value="18">Grande</option>
-        <option value="20">Muy grande</option>
-      </select>
-    </div>
-    <button id="saveSettings">Guardar preferencias</button>
-    <hr>
-    <h3>Denominaciones personalizadas</h3>
-    <div class="row">
-      <div class="field"><label>Valor CUP</label><input id="customValue" type="number" min="1"></div>
-      <div class="field"><label>Nombre</label><input id="customName" placeholder="Opcional"></div>
-    </div>
-    <button id="addDenomination">Añadir denominación</button>
-    <div id="customList"></div>
-    <hr>
-    <h3>Copias de seguridad y privacidad</h3>
-    <p class="muted">La copia JSON contiene los datos del contador en texto legible. Guárdala en un lugar privado. No es una copia cifrada.</p>
-    <div class="btns">
-      <button id="backupJson">Exportar copia JSON</button>
-      <button class="secondary" id="importJson">Importar copia JSON</button>
-      <input id="importFile" class="hidden" type="file" accept=".json,application/json">
-    </div>
-    <button class="danger" id="deleteLocal">Borrar todos los datos locales</button>
-    <hr>
-    <h3>Seguridad y sincronización</h3>
-    <p class="muted">Esta versión guarda los datos en el dispositivo y funciona sin conexión. El cifrado con recuperación de clave y la sincronización Supabase/Nova Apps requieren configurar y probar el sistema de claves, la autenticación y las políticas RLS. No se simula una sincronización que todavía no existe.</p>
-    <div class="notice" id="syncStatus">Nube: no configurada · Datos locales disponibles</div>
-    <hr>
-    <h3>Estado de la aplicación</h3>
-    <div id="storageStatus" class="muted"></div>
-  </div>
-</section>
+                        <div id="denomination-list" class="denomination-grid" style="margin-top:16px"></div>
+                    </section>
 
-<div class="bottomnote">Contador CUP · Los datos permanecen en este navegador salvo que exportes una copia. El borrado del navegador puede eliminar los datos locales.</div>
-</main>
+                    <section class="panel">
+                        <h3>Guardar conteo</h3>
 
-<div id="modal" class="modal hidden">
-  <div class="modalbox">
-    <h2 id="modalTitle">Confirmar</h2>
-    <div id="modalBody"></div>
-    <div class="btns">
-      <button id="modalOk">Aceptar</button>
-      <button id="modalCancel" class="secondary">Cancelar</button>
-    </div>
-  </div>
-</div>
+                        <form data-app-form="save-count">
+                            <div class="form-grid">
+                                <div class="form-field">
+                                    <label for="count-name">Nombre del conteo</label>
+                                    <input id="count-name" name="name" type="text" maxlength="120" placeholder="Ej.: Caja principal">
+                                </div>
 
-<script>
-'use strict';
+                                <div class="form-field">
+                                    <label for="count-notes">Notas</label>
+                                    <input id="count-notes" name="notes" type="text" maxlength="500" placeholder="Observaciones opcionales">
+                                </div>
+                            </div>
 
-const DEFAULTS=[20000,10000,5000,2000,1000,500,200,100,50,20,10,5,3,1];
-const KEY='contadorCUP.pro.v1';
-const $=id=>document.getElementById(id);
-const fmt=n=>Math.round(Number(n)||0).toLocaleString('es-ES');
-const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const uid=()=>globalThis.crypto?.randomUUID?globalThis.crypto.randomUUID():'id-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2);
+                            <div class="form-actions" style="margin-top:14px">
+                                <button class="btn btn-primary" type="submit">Guardar en historial</button>
+                            </div>
+                        </form>
+                    </section>
 
-let state={
-  version:1,
-  denoms:DEFAULTS.map(v=>({value:v,name:''})),
-  qty:{},
-  records:[],
-  movements:[],
-  machines:[],
-  opening:0,
-  settings:{dark:false,vibration:false,warnLarge:true,textSize:16},
-  draft:{label:'',tag:'',target:'',operator:''}
-};
+                    <section class="panel">
+                        <h3>Guardar borrador</h3>
 
-let undoStack=[],redoStack=[],lastSavedDraft='',saveTimer;
-let activeRecord=null;
+                        <form data-app-form="save-draft">
+                            <div class="form-field">
+                                <label for="draft-name">Nombre del borrador</label>
+                                <input id="draft-name" name="draftName" type="text" maxlength="120" placeholder="Ej.: Conteo pendiente">
+                            </div>
 
-function readState(){
-  try{
-    const x=JSON.parse(localStorage.getItem(KEY));
-    if(x&&x.version===1){
-      state={
-        ...state,
-        ...x,
-        settings:{...state.settings,...x.settings},
-        draft:{...state.draft,...x.draft}
-      };
-    }
-  }catch(e){
-    console.warn(e);
-  }
-}
+                            <div class="form-actions" style="margin-top:14px">
+                                <button class="btn btn-primary" type="submit">Guardar borrador</button>
+                                <button class="btn btn-secondary" type="button" data-action="save-draft-as-new">Guardar como nuevo</button>
+                            </div>
+                        </form>
+                    </section>
+                </section>
 
-function persist(){
-  try{
-    localStorage.setItem(KEY,JSON.stringify(state));
-    $('liveStatus').textContent='Guardado en el dispositivo · '+new Date().toLocaleTimeString();
-    $('storageStatus').textContent='Almacenamiento local accesible. Registros: '+state.records.length+' · Espacio estimado: '+fmt(new Blob([JSON.stringify(state)]).size/1024)+' KB';
-    return true;
-  }catch(e){
-    $('liveStatus').textContent='Error al guardar: exporta una copia ahora';
-    alert('No se pudo guardar. Exporta una copia y libera espacio.');
-    return false;
-  }
-}
+                <section data-view-panel="drafts" class="page-panel" hidden>
+                    <div class="page-heading">
+                        <div>
+                            <h2 id="drafts-page-title">Borradores</h2>
+                            <p>Continúa los conteos que guardaste anteriormente.</p>
+                        </div>
+                    </div>
+                    <div id="draft-list" class="list-stack"></div>
+                </section>
 
-function debounceSave(){
-  clearTimeout(saveTimer);
-  saveTimer=setTimeout(()=>{
-    state.draft={
-      label:$('label').value,
-      tag:$('tag').value,
-      target:$('target').value,
-      operator:$('operator').value
-    };
-    persist();
-    $('countStatus').textContent='Borrador guardado automáticamente.';
-  },180);
-}
+                <section data-view-panel="history" class="page-panel" hidden>
+                    <div class="page-heading">
+                        <div>
+                            <h2>Historial de conteos</h2>
+                            <p>Consulta, recupera o exporta registros anteriores.</p>
+                        </div>
+                    </div>
 
-function total(){
-  return state.denoms.reduce((s,d)=>s+d.value*(Math.max(0,Math.floor(Number(state.qty[d.value])||0))),0);
-}
+                    <section class="panel">
+                        <h3>Filtros</h3>
 
-function units(){
-  return state.denoms.reduce((s,d)=>s+Math.max(0,Math.floor(Number(state.qty[d.value])||0)),0);
-}
+                        <div class="form-grid">
+                            <div class="form-field">
+                                <label for="history-search">Buscar</label>
+                                <input id="history-search" data-history-filter type="search" placeholder="Nombre o notas">
+                            </div>
 
-function updateTotal(){
-  const t=total(),u=units();
-  $('grandTotal').textContent=fmt(t)+' CUP';
-  $('unitTotal').textContent=fmt(u)+' unidades';
-  const target=Number($('target').value);
-  if($('target').value!==''&&Number.isFinite(target)){
-    $('targetDiff').classList.remove('hidden');
-    const diff=t-target;
-    $('targetDiff').textContent=diff===0?'El conteo coincide con lo esperado.':(diff>0?'Exceso: ':'Faltante: ')+fmt(Math.abs(diff))+' CUP';
-  }else{
-    $('targetDiff').classList.add('hidden');
-  }
-  debounceSave();
-}
+                            <div class="form-field">
+                                <label for="history-start-date">Desde</label>
+                                <input id="history-start-date" data-history-filter type="date">
+                            </div>
 
-function snapshot(){
-  undoStack.push(JSON.stringify(state.qty));
-  if(undoStack.length>80)undoStack.shift();
-  redoStack=[];
-}
+                            <div class="form-field">
+                                <label for="history-end-date">Hasta</label>
+                                <input id="history-end-date" data-history-filter type="date">
+                            </div>
 
-function renderDenoms(){
-  const host=$('denominations');
-  host.innerHTML=state.denoms.map(d=>{
-    const q=Math.max(0,Math.floor(Number(state.qty[d.value])||0));
-    return `<div class="denom">
-      <div class="value">${esc(d.name||fmt(d.value)+' CUP')}</div>
-      <input class="qty" type="number" min="0" step="1" inputmode="numeric" data-value="${d.value}" aria-label="Cantidad de ${d.value}" value="${q}">
-      <div class="quick">
-        <button class="secondary" data-step="-10" data-for="${d.value}">−10</button>
-        <button class="secondary" data-step="-1" data-for="${d.value}">−1</button>
-        <button data-step="1" data-for="${d.value}">+1</button>
-        <button data-step="10" data-for="${d.value}">+10</button>
-      </div>
-    </div>`;
-  }).join('');
+                            <div class="form-field">
+                                <label for="history-min-amount">Importe mínimo</label>
+                                <input id="history-min-amount" data-history-filter type="number" min="0" step="0.01">
+                            </div>
 
-  host.querySelectorAll('.qty').forEach(el=>{
-    el.addEventListener('focus',()=>{
-      snapshot();
-      el.select();
-    });
+                            <div class="form-field">
+                                <label for="history-max-amount">Importe máximo</label>
+                                <input id="history-max-amount" data-history-filter type="number" min="0" step="0.01">
+                            </div>
+                        </div>
 
-    el.addEventListener('input',()=>{
-      let v=el.value.replace(/[^\d]/g,'');
-      if(v.length>1)v=v.replace(/^0+/,'');
-      el.value=v;
-      state.qty[el.dataset.value]=Math.min(100000000,Number(v)||0);
-      updateTotal();
-      if(state.settings.vibration&&navigator.vibrate)navigator.vibrate(8);
-      if(state.settings.warnLarge&&Number(v)>100000&&Number(v)%100000===0){
-        $('countStatus').textContent='Comprueba que la cantidad sea correcta.';
-      }
-    });
+                        <div class="form-actions" style="margin-top:14px">
+                            <button class="btn btn-secondary" type="button" data-action="export-history">Exportar historial CSV</button>
+                            <button class="btn btn-secondary" type="button" data-action="navigate" data-view="comparison">Comparar conteos</button>
+                        </div>
+                    </section>
 
-    el.addEventListener('blur',()=>{
-      if(el.value==='')el.value='0';
-      state.qty[el.dataset.value]=Number(el.value)||0;
-      updateTotal();
-    });
-  });
+                    <div id="history-list" class="list-stack"></div>
+                </section>
 
-  host.querySelectorAll('[data-step]').forEach(b=>{
-    b.onclick=()=>{
-      snapshot();
-      const v=b.dataset.for;
-      state.qty[v]=Math.max(0,(Number(state.qty[v])||0)+Number(b.dataset.step));
-      const el=host.querySelector(`[data-value="${v}"]`);
-      if(el)el.value=state.qty[v];
-      updateTotal();
-      if(state.settings.vibration&&navigator.vibrate)navigator.vibrate(8);
-    };
-  });
-}
+                <section data-view-panel="comparison" class="page-panel" hidden>
+                    <div class="page-heading">
+                        <div>
+                            <h2>Comparación de conteos</h2>
+                            <p>Selecciona registros guardados para compararlos.</p>
+                        </div>
+                    </div>
 
-function goTab(name){
-  document.querySelectorAll('[id^="tab-"]').forEach(s=>s.classList.toggle('hidden',s.id!=='tab-'+name));
-  document.querySelectorAll('[data-tab]').forEach(b=>b.classList.toggle('active',b.dataset.tab===name));
-  if(name==='history')renderHistory();
-  if(name==='reports')renderReports();
-  if(name==='cash')renderCash();
-  if(name==='machines')renderMachines();
-  if(name==='settings')renderSettings();
-  window.scrollTo(0,0);
-}
+                    <section class="panel">
+                        <div class="form-grid">
+                            <div class="form-field">
+                                <label for="comparison-record-a">Primer conteo</label>
+                                <select id="comparison-record-a">
+                                    <option value="">Selecciona un conteo</option>
+                                </select>
+                            </div>
 
-document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>goTab(b.dataset.tab));
+                            <div class="form-field">
+                                <label for="comparison-record-b">Segundo conteo</label>
+                                <select id="comparison-record-b">
+                                    <option value="">Selecciona un conteo</option>
+                                </select>
+                            </div>
+                        </div>
 
-function currentData(){
-  return {
-    id:uid(),
-    createdAt:new Date().toISOString(),
-    label:$('label').value.trim(),
-    tag:$('tag').value.trim(),
-    operator:$('operator').value.trim(),
-    target:$('target').value===''?null:Number($('target').value),
-    total:total(),
-    units:units(),
-    qty:{...state.qty},
-    denoms:state.denoms.map(d=>({...d})),
-    status:'local',
-    audit:[{at:new Date().toISOString(),action:'created'}]
-  };
-}
+                        <div class="form-actions" style="margin-top:14px">
+                            <button class="btn btn-primary" type="button" data-action="compare-records">Comparar</button>
+                        </div>
 
-function saveRecord(){
-  if(!units()){
-    alert('Introduce al menos una cantidad.');
-    return;
-  }
-  const r=currentData();
-  state.records.unshift(r);
-  activeRecord=r.id;
-  persist();
-  renderHistory();
-  $('countStatus').textContent='Conteo guardado localmente: '+new Date().toLocaleString();
-  alert('Conteo guardado en este dispositivo.');
-}
+                        <div id="comparison-result" class="list-stack" style="margin-top:16px"></div>
+                    </section>
+                </section>
 
-function restoreRecord(id,duplicate=false){
-  const r=state.records.find(x=>x.id===id);
-  if(!r)return;
-  state.qty={...r.qty};
+                <section data-view-panel="reports" class="page-panel" hidden>
+                    <div class="page-heading">
+                        <div>
+                            <h2>Informes y estadísticas</h2>
+                            <p>Resumen de los conteos almacenados.</p>
+                        </div>
+                    </div>
 
-  if(!duplicate){
-    activeRecord=id;
-    $('label').value=r.label||'';
-    $('tag').value=r.tag||'';
-    $('target').value=r.target??'';
-    $('operator').value=r.operator||'';
-  }else{
-    $('label').value=(r.label||'Conteo')+' (copia)';
-    activeRecord=null;
-  }
+                    <div class="stat-grid">
+                        <article class="stat-card">
+                            <span>Conteos guardados</span>
+                            <strong id="report-count">0</strong>
+                        </article>
+                        <article class="stat-card">
+                            <span>Importe acumulado</span>
+                            <strong id="report-total">0,00 CUP</strong>
+                        </article>
+                        <article class="stat-card">
+                            <span>Billetes registrados</span>
+                            <strong id="report-bills">0</strong>
+                        </article>
+                        <article class="stat-card">
+                            <span>Promedio por conteo</span>
+                            <strong id="report-average">0,00 CUP</strong>
+                        </article>
+                    </div>
 
-  renderDenoms();
-  updateTotal();
-  goTab('count');
-}
+                    <section class="panel">
+                        <h3>Periodo del informe</h3>
 
-function deleteRecord(id){
-  if(!confirm('¿Eliminar este registro local?'))return;
-  state.records=state.records.filter(r=>r.id!==id);
-  persist();
-  renderHistory();
-}
+                        <div class="form-grid">
+                            <div class="form-field">
+                                <label for="report-start-date">Desde</label>
+                                <input id="report-start-date" type="date">
+                            </div>
+                            <div class="form-field">
+                                <label for="report-end-date">Hasta</label>
+                                <input id="report-end-date" type="date">
+                            </div>
+                        </div>
 
-function renderHistory(){
-  const q=$('historySearch').value.toLowerCase();
-  const from=$('dateFrom').value;
-  const to=$('dateTo').value;
-  const min=$('minTotal').value;
-  const max=$('maxTotal').value;
+                        <div class="form-actions" style="margin-top:14px">
+                            <button class="btn btn-secondary" type="button" data-action="export-daily">Exportar estadísticas diarias</button>
+                            <button class="btn btn-secondary" type="button" data-action="export-denominations">Exportar por denominación</button>
+                        </div>
+                    </section>
 
-  const list=state.records.filter(r=>{
-    const day=r.createdAt.slice(0,10);
-    const txt=[r.label,r.tag,r.operator].join(' ').toLowerCase();
-    return (!q||txt.includes(q))&&
-      (!from||day>=from)&&
-      (!to||day<=to)&&
-      (min===''||r.total>=Number(min))&&
-      (max===''||r.total<=Number(max));
-  });
+                    <section class="panel">
+                        <h3>Actividad diaria</h3>
+                        <div class="table-wrapper">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Fecha</th>
+                                        <th>Conteos</th>
+                                        <th>Importe</th>
+                                        <th>Billetes</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="daily-report-list">
+                                    <tr><td colspan="4">No hay datos disponibles.</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </section>
 
-  $('historyList').innerHTML=list.length?list.map(r=>`
-    <div class="record">
-      <div class="recordtop">
-        <div>
-          <strong>${fmt(r.total)} CUP</strong>
-          <div>${esc(r.label||'Conteo sin nombre')}</div>
-          <div class="muted">${new Date(r.createdAt).toLocaleString()} · ${fmt(r.units)} unidades</div>
-          <div class="muted">${esc([r.tag,r.operator].filter(Boolean).join(' · '))}</div>
-          <span class="badge">${esc(r.status||'local')}</span>
+                    <section class="panel">
+                        <h3>Por denominación</h3>
+                        <div class="table-wrapper">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Denominación</th>
+                                        <th>Cantidad</th>
+                                        <th>Subtotal</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="denomination-report-list"></tbody>
+                            </table>
+                        </div>
+                    </section>
+                </section>
+
+                <section data-view-panel="cash" class="page-panel" hidden>
+                    <div class="page-heading">
+                        <div>
+                            <h2>Administración de caja</h2>
+                            <p>Registra entradas, salidas y ajustes del efectivo.</p>
+                        </div>
+                    </div>
+
+                    <div class="stat-grid">
+                        <article class="stat-card">
+                            <span>Saldo inicial</span>
+                            <strong id="cash-opening-balance">0,00 CUP</strong>
+                        </article>
+                        <article class="stat-card">
+                            <span>Entradas</span>
+                            <strong id="cash-income">0,00 CUP</strong>
+                        </article>
+                        <article class="stat-card">
+                            <span>Salidas</span>
+                            <strong id="cash-expenses">0,00 CUP</strong>
+                        </article>
+                        <article class="stat-card">
+                            <span>Ajustes</span>
+                            <strong id="cash-adjustments">0,00 CUP</strong>
+                        </article>
+                        <article class="stat-card">
+                            <span>Saldo calculado</span>
+                            <strong id="cash-current-balance">0,00 CUP</strong>
+                        </article>
+                        <article class="stat-card">
+                            <span>Movimientos</span>
+                            <strong id="cash-movement-count">0</strong>
+                        </article>
+                    </div>
+
+                    <section class="panel">
+                        <h3>Saldo inicial</h3>
+
+                        <div class="form-grid">
+                            <div class="form-field">
+                                <label for="opening-balance-input">Importe inicial (CUP)</label>
+                                <input id="opening-balance-input" type="number" min="0" step="0.01" value="0">
+                            </div>
+                        </div>
+
+                        <div class="form-actions" style="margin-top:14px">
+                            <button class="btn btn-primary" type="button" data-action="set-opening-balance">Guardar saldo inicial</button>
+                        </div>
+                    </section>
+
+                    <section class="panel">
+                        <h3>Registrar movimiento</h3>
+
+                        <form data-app-form="add-cash-movement">
+                            <div class="form-grid">
+                                <div class="form-field">
+                                    <label for="movement-type">Tipo de movimiento</label>
+                                    <select id="movement-type" required>
+                                        <option value="income">Entrada</option>
+                                        <option value="expense">Salida</option>
+                                        <option value="adjustment">Ajuste</option>
+                                    </select>
+                                </div>
+
+                                <div class="form-field">
+                                    <label for="movement-amount">Importe (CUP)</label>
+                                    <input id="movement-amount" type="number" min="0.01" step="0.01" required>
+                                </div>
+
+                                <div class="form-field">
+                                    <label for="movement-description">Descripción</label>
+                                    <input id="movement-description" type="text" maxlength="160" required>
+                                </div>
+
+                                <div class="form-field">
+                                    <label for="movement-reference">Referencia</label>
+                                    <input id="movement-reference" type="text" maxlength="120">
+                                </div>
+
+                                <div class="form-field full-width">
+                                    <label for="movement-notes">Notas</label>
+                                    <textarea id="movement-notes" maxlength="500"></textarea>
+                                </div>
+                            </div>
+
+                            <div class="form-actions" style="margin-top:14px">
+                                <button class="btn btn-primary" type="submit">Registrar movimiento</button>
+                            </div>
+                        </form>
+                    </section>
+
+                    <section class="panel">
+                        <h3>Movimientos registrados</h3>
+                        <div id="cash-movement-list" class="list-stack"></div>
+                    </section>
+                </section>
+
+                <section data-view-panel="machines" class="page-panel" hidden>
+                    <div class="page-heading">
+                        <div>
+                            <h2>Máquinas externas</h2>
+                            <p>Registra máquinas de conteo, detección y clasificación de efectivo.</p>
+                        </div>
+                    </div>
+
+                    <div class="status-note">
+                        Registrar una máquina no confirma su compatibilidad. Las conexiones reales requieren un protocolo documentado y un controlador compatible.
+                        <div id="machine-connection-capabilities" style="margin-top:8px"></div>
+                    </div>
+
+                    <section class="panel">
+                        <h3>Registrar máquina</h3>
+
+                        <form data-app-form="register-machine">
+                            <div class="form-grid">
+                                <div class="form-field">
+                                    <label for="machine-name">Nombre</label>
+                                    <input id="machine-name" type="text" maxlength="120" required>
+                                </div>
+
+                                <div class="form-field">
+                                    <label for="machine-type">Tipo</label>
+                                    <select id="machine-type" required>
+                                        <option value="counter">Contadora de billetes</option>
+                                        <option value="detector">Detector de billetes falsos</option>
+                                        <option value="sorter">Clasificadora</option>
+                                        <option value="other">Otra</option>
+                                    </select>
+                                </div>
+
+                                <div class="form-field">
+                                    <label for="machine-brand">Marca</label>
+                                    <input id="machine-brand" type="text" maxlength="100">
+                                </div>
+
+                                <div class="form-field">
+                                    <label for="machine-model">Modelo</label>
+                                    <input id="machine-model" type="text" maxlength="100">
+                                </div>
+
+                                <div class="form-field">
+                                    <label for="machine-serial">Número de serie</label>
+                                    <input id="machine-serial" type="text" maxlength="120">
+                                </div>
+
+                                <div class="form-field">
+                                    <label for="machine-image">Ruta o URL de imagen</label>
+                                    <input id="machine-image" type="text" maxlength="500" placeholder="Ruta local o URL https">
+                                </div>
+
+                                <div class="form-field">
+                                    <label for="machine-connection-type">Conexión</label>
+                                    <select id="machine-connection-type">
+                                        <option value="none">Sin conexión</option>
+                                        <option value="usb">USB</option>
+                                        <option value="serial">Puerto serie</option>
+                                        <option value="bluetooth">Bluetooth</option>
+                                        <option value="network">Red / Wi-Fi</option>
+                                        <option value="other">Otra</option>
+                                        <option value="unknown">Desconocida</option>
+                                    </select>
+                                </div>
+
+                                <div class="form-field">
+                                    <label for="machine-connection-details">Detalles de conexión</label>
+                                    <input id="machine-connection-details" type="text" maxlength="500" placeholder="Dirección, servicio o interfaz documentada">
+                                </div>
+
+                                <div class="form-field full-width">
+                                    <label for="machine-protocol">Protocolo documentado</label>
+                                    <input id="machine-protocol" type="text" maxlength="200" placeholder="Fabricante, versión y protocolo">
+                                </div>
+
+                                <div class="form-field full-width">
+                                    <label for="machine-description">Observaciones</label>
+                                    <textarea id="machine-description" maxlength="1000"></textarea>
+                                </div>
+                            </div>
+
+                            <div class="form-actions" style="margin-top:14px">
+                                <button class="btn btn-primary" type="submit">Registrar máquina</button>
+                            </div>
+                        </form>
+                    </section>
+
+                    <section class="panel">
+                        <h3>Máquinas registradas</h3>
+                        <div id="machine-list" class="list-stack"></div>
+                    </section>
+                </section>
+
+                <section data-view-panel="denominations" class="page-panel" hidden>
+                    <div class="page-heading">
+                        <div>
+                            <h2>Denominaciones</h2>
+                            <p>Administra las denominaciones disponibles en el contador.</p>
+                        </div>
+                    </div>
+
+                    <section class="panel">
+                        <h3>Añadir denominación personalizada</h3>
+
+                        <form data-app-form="add-denomination">
+                            <div class="form-grid">
+                                <div class="form-field">
+                                    <label for="new-denomination-value">Valor numérico</label>
+                                    <input id="new-denomination-value" type="number" min="1" max="1000000000" step="1" required>
+                                </div>
+
+                                <div class="form-field">
+                                    <label for="new-denomination-label">Etiqueta</label>
+                                    <input id="new-denomination-label" type="text" maxlength="80" placeholder="Ej.: 750 CUP" required>
+                                </div>
+                            </div>
+
+                            <div class="form-actions" style="margin-top:14px">
+                                <button class="btn btn-primary" type="submit">Añadir denominación</button>
+                            </div>
+                        </form>
+                    </section>
+
+                    <section class="panel">
+                        <h3>Denominaciones existentes</h3>
+                        <div id="denomination-settings-list" class="list-stack"></div>
+                    </section>
+                </section>
+
+                <section data-view-panel="settings" class="page-panel" hidden>
+                    <div class="page-heading">
+                        <div>
+                            <h2>Configuración</h2>
+                            <p>Personaliza las preferencias de la aplicación.</p>
+                        </div>
+                    </div>
+
+                    <section class="panel">
+                        <form data-app-form="save-settings">
+                            <div class="form-grid">
+                                <div class="form-field">
+                                    <label for="setting-theme">Tema</label>
+                                    <select id="setting-theme">
+                                        <option value="system">Sistema</option>
+                                        <option value="light">Claro</option>
+                                        <option value="dark">Oscuro</option>
+                                    </select>
+                                </div>
+
+                                <div class="form-field">
+                                    <label for="setting-language">Idioma</label>
+                                    <select id="setting-language">
+                                        <option value="es">Español</option>
+                                    </select>
+                                </div>
+
+                                <div class="form-field full-width">
+                                    <label>
+                                        <input id="setting-auto-save" type="checkbox" checked>
+                                        Guardar automáticamente el conteo actual
+                                    </label>
+                                </div>
+
+                                <div class="form-field full-width">
+                                    <label>
+                                        <input id="setting-confirm-delete" type="checkbox" checked>
+                                        Pedir confirmación antes de eliminar
+                                    </label>
+                                </div>
+
+                                <div class="form-field full-width">
+                                    <label>
+                                        <input id="setting-sound" type="checkbox">
+                                        Activar sonidos
+                                    </label>
+                                </div>
+
+                                <div class="form-field full-width">
+                                    <label>
+                                        <input id="setting-haptic" type="checkbox" checked>
+                                        Permitir respuesta háptica cuando sea compatible
+                                    </label>
+                                </div>
+                            </div>
+
+                            <div class="form-actions" style="margin-top:16px">
+                                <button class="btn btn-primary" type="submit">Guardar configuración</button>
+                                <button class="btn btn-secondary" type="button" data-action="theme-light">Tema claro</button>
+                                <button class="btn btn-secondary" type="button" data-action="theme-dark">Tema oscuro</button>
+                                <button class="btn btn-secondary" type="button" data-action="theme-system">Tema del sistema</button>
+                            </div>
+                        </form>
+                    </section>
+
+                    <section class="panel">
+                        <h3>Estado de la aplicación</h3>
+                        <p>Los datos se almacenan localmente en este navegador.</p>
+                        <p class="text-muted text-small">La sincronización en la nube no está habilitada.</p>
+                    </section>
+                </section>
+
+                <section data-view-panel="backup" class="page-panel" hidden>
+                    <div class="page-heading">
+                        <div>
+                            <h2>Copias de seguridad</h2>
+                            <p>Exporta tus datos y restaura una copia cuando sea necesario.</p>
+                        </div>
+                    </div>
+
+                    <section class="panel">
+                        <h3>Crear respaldo</h3>
+                        <p>Guarda una copia de los datos locales para protegerlos ante pérdidas del almacenamiento.</p>
+
+                        <div class="form-actions">
+                            <button class="btn btn-primary" type="button" data-action="export-backup">Descargar copia de seguridad</button>
+                            <button class="btn btn-secondary" type="button" data-action="show-backup-preview">Ver resumen del respaldo</button>
+                        </div>
+
+                        <pre id="backup-preview" class="code-preview" style="margin-top:14px"></pre>
+                    </section>
+
+                    <section class="panel danger-zone">
+                        <h3>Restaurar respaldo</h3>
+                        <p>Importar puede reemplazar información existente. Crea primero una copia de seguridad de los datos actuales.</p>
+
+                        <div class="form-field">
+                            <label for="backup-file">Archivo de respaldo</label>
+                            <input id="backup-file" type="file" accept=".json,application/json">
+                        </div>
+
+                        <div class="form-actions" style="margin-top:14px">
+                            <button class="btn btn-primary" type="button" data-action="import-backup">Importar y restaurar</button>
+                        </div>
+                    </section>
+                </section>
+
+                <section data-view-panel="about" class="page-panel" hidden>
+                    <div class="page-heading">
+                        <div>
+                            <h2>Acerca de Contador CUP</h2>
+                            <p>Información sobre la aplicación.</p>
+                        </div>
+                    </div>
+
+                    <section class="panel">
+                        <div class="app-brand">
+                            <img src="./icon.svg" alt="Icono de Contador CUP" width="64" height="64">
+                            <div>
+                                <h3>Contador de Efectivo CUP</h3>
+                                <p class="text-muted">Desarrollado por Nova Apps</p>
+                            </div>
+                        </div>
+
+                        <p>Herramienta para contar efectivo, guardar registros y consultar estadísticas de importes en pesos cubanos.</p>
+
+                        <h3>Privacidad</h3>
+                        <p>Los registros se guardan localmente en el navegador. Exporta respaldos con regularidad y protégelos si contienen información privada.</p>
+
+                        <h3>Limitaciones</h3>
+                        <p>La conexión con máquinas externas requiere controladores y protocolos compatibles. Registrar un dispositivo no implica que pueda conectarse o transmitir datos.</p>
+
+                        <button class="btn btn-primary" type="button" data-action="open-nova-home">Abrir página principal de Nova Apps</button>
+                    </section>
+                </section>
+
+                <section data-view-panel="nova-apps" class="page-panel" hidden>
+                    <div class="page-heading">
+                        <div>
+                            <h2>Otras aplicaciones de Nova</h2>
+                            <p>Accede al portal principal de Nova Apps.</p>
+                        </div>
+                    </div>
+
+                    <section class="panel">
+                        <div class="app-brand">
+                            <img src="./icon.svg" alt="" width="64" height="64">
+                            <div>
+                                <h3>Contador de Efectivo CUP</h3>
+                                <p class="text-muted">Aplicación actual</p>
+                            </div>
+                        </div>
+
+                        <p>Consulta las demás aplicaciones disponibles en el portal oficial de Nova Apps.</p>
+
+                        <button class="btn btn-primary" type="button" data-action="open-nova-home">Abrir Nova Apps</button>
+                    </section>
+                </section>
+
+                <footer class="app-footer">
+                    <p>Contador de Efectivo CUP · Nova Apps</p>
+                    <p>
+                        <a href="https://cumba35.github.io/Nova-APPS/" target="_blank" rel="noopener noreferrer">
+                            Página principal de Nova Apps
+                        </a>
+                    </p>
+                    <p>Los resultados dependen de los datos introducidos y guardados en la aplicación.</p>
+                </footer>
+            </main>
         </div>
-        <button class="smallbtn secondary" data-restore="${r.id}">Abrir</button>
-      </div>
-      <div class="btns">
-        <button class="smallbtn secondary" data-duplicate="${r.id}">Duplicar</button>
-        <button class="smallbtn secondary" data-compare="${r.id}">Comparar</button>
-        <button class="smallbtn secondary" data-receipt="${r.id}">Imprimir</button>
-        <button class="smallbtn danger" data-delete="${r.id}">Eliminar</button>
-      </div>
-    </div>`).join(''):'<p class="muted">No hay registros que coincidan con los filtros.</p>';
 
-  $('historyList').querySelectorAll('[data-restore]').forEach(b=>b.onclick=()=>restoreRecord(b.dataset.restore));
-  $('historyList').querySelectorAll('[data-duplicate]').forEach(b=>b.onclick=()=>restoreRecord(b.dataset.duplicate,true));
-  $('historyList').querySelectorAll('[data-delete]').forEach(b=>b.onclick=()=>deleteRecord(b.dataset.delete));
-  $('historyList').querySelectorAll('[data-receipt]').forEach(b=>b.onclick=()=>printRecord(b.dataset.receipt));
-  $('historyList').querySelectorAll('[data-compare]').forEach(b=>b.onclick=()=>compareRecord(b.dataset.compare));
-}
+        <div id="toast-container" class="toast-container" aria-live="polite" hidden></div>
+    </div>
 
-function compareRecord(id){
-  const a=state.records.find(r=>r.id===id);
-  if(!a)return;
-  const b=state.records.find(r=>r.id!==id);
-  if(!b){
-    alert('Guarda otro conteo para comparar.');
-    return;
-  }
-  alert(`Comparación con ${b.label||'otro conteo'} (${new Date(b.createdAt).toLocaleString()})
-Conteo seleccionado: ${fmt(a.total)} CUP
-Otro conteo: ${fmt(b.total)} CUP
-Diferencia: ${fmt(a.total-b.total)} CUP`);
-}
-
-function printRecord(id){
-  const r=state.records.find(x=>x.id===id);
-  if(!r)return;
-  const w=window.open('','_blank');
-  if(!w){
-    alert('Permite ventanas emergentes para imprimir.');
-    return;
-  }
-  w.document.write(`<html lang="es"><meta charset="utf-8"><title>Conteo CUP</title><h1>Contador CUP</h1><h2>${esc(r.label||'Conteo')}</h2><p>${new Date(r.createdAt).toLocaleString()}</p><h1>${fmt(r.total)} CUP</h1><p>${fmt(r.units)} unidades</p><table border="1" cellpadding="6"><tr><th>Denominación</th><th>Cantidad</th><th>Subtotal</th></tr>${r.denoms.map(d=>`<tr><td>${esc(d.name||fmt(d.value))}</td><td>${fmt(r.qty[d.value]||0)}</td><td>${fmt(d.value*(r.qty[d.value]||0))} CUP</td></tr>`).join('')}</table><script>window.onload=()=>window.print()<\/script></html>`);
-  w.document.close();
-}
-
-function csvEscape(v){
-  return '"'+String(v??'').replace(/"/g,'""')+'"';
-}
-
-function exportCsv(){
-  const rows=[['ID','Fecha ISO','Nombre','Etiqueta','Responsable','Total CUP','Unidades',...state.denoms.map(d=>(d.name||d.value)+' cantidad')]];
-  state.records.forEach(r=>rows.push([r.id,r.createdAt,r.label,r.tag,r.operator,r.total,r.units,...state.denoms.map(d=>r.qty[d.value]||0)]));
-  download('\ufeff'+rows.map(r=>r.map(csvEscape).join(',')).join('\r\n'),'Conteos_CUP.csv','text/csv;charset=utf-8');
-}
-
-function download(data,name,type){
-  const blob=new Blob([data],{type});
-  const url=URL.createObjectURL(blob);
-  const a=document.createElement('a');
-  a.href=url;
-  a.download=name;
-  a.click();
-  setTimeout(()=>URL.revokeObjectURL(url),1500);
-}
-
-function backup(){
-  download(JSON.stringify({format:'contador-cup-backup',version:1,exportedAt:new Date().toISOString(),state},null,2),'Copia_Contador_CUP.json','application/json');
-}
-
-function importBackup(file){
-  const reader=new FileReader();
-  reader.onload=()=>{
-    try{
-      const x=JSON.parse(reader.result);
-      if(x.format!=='contador-cup-backup'||!x.state||!Array.isArray(x.state.records)||!confirm('Importar reemplazará los datos actuales. Exporta una copia antes. ¿Continuar?'))return;
-      state={...state,...x.state};
-      persist();
-      renderDenoms();
-      updateTotal();
-      renderHistory();
-      alert('Copia importada.');
-    }catch(e){
-      alert('Archivo de copia no válido.');
-    }
-  };
-  reader.readAsText(file);
-}
-
-function renderReports(){
-  const now=Date.now(),period=$('reportPeriod').value,kind=$('reportKind').value;
-  let arr=state.records.filter(r=>period==='all'||now-new Date(r.createdAt).getTime()<=({day:7,month:30,year:365}[period]*86400000));
-  const sum=arr.reduce((s,r)=>s+(kind==='total'?r.total:r.units),0);
-  const avg=arr.length?Math.round(sum/arr.length):0;
-  const max=arr.reduce((m,r)=>Math.max(m,kind==='total'?r.total:r.units),0);
-
-  $('reportStats').innerHTML=`
-    <div class="stat">Conteos<b>${fmt(arr.length)}</b></div>
-    <div class="stat">Suma del periodo<b>${fmt(sum)} ${kind==='total'?'CUP':'unidades'}</b></div>
-    <div class="stat">Promedio<b>${fmt(avg)}</b></div>
-    <div class="stat">Mayor<b>${fmt(max)}</b></div>`;
-
-  arr=arr.slice(0,12).reverse();
-  $('chart').innerHTML=arr.length?arr.map(r=>{
-    const v=kind==='total'?r.total:r.units;
-    const h=max?Math.max(3,v/max*115):3;
-    return `<div class="barwrap" title="${fmt(v)}"><div class="bar" style="height:${h}px"></div><div>${esc(new Date(r.createdAt).toLocaleDateString())}</div></div>`;
-  }).join(''):'<span class="muted">Guarda conteos para generar el gráfico.</span>';
-}
-
-function renderCash(){
-  const net=state.movements.reduce((s,m)=>s+(m.type==='in'?m.amount:-m.amount),0);
-  const latest=state.records[0];
-  const expected=Number(state.opening||0)+net;
-
-  $('cashSummary').innerHTML=`
-    <div class="stat">Saldo inicial<b>${fmt(state.opening)} CUP</b></div>
-    <div class="stat">Movimientos netos<b>${fmt(net)} CUP</b></div>
-    <div class="stat">Saldo esperado<b>${fmt(expected)} CUP</b></div>
-    <div class="stat">Último conteo<b>${latest?fmt(latest.total):'—'} CUP</b></div>`+
-    (latest?`<div class="stat">Diferencia<b>${fmt(latest.total-expected)} CUP</b></div>`:'');
-
-  $('movementList').innerHTML='<h3>Movimientos</h3>'+
-    state.movements.map(m=>`<div class="record">${m.type==='in'?'Entrada':'Salida'} · <b>${fmt(m.amount)} CUP</b><div>${esc(m.reason)} · ${new Date(m.at).toLocaleString()}</div></div>`).join('');
-}
-
-function renderMachines(){
-  $('machineList').innerHTML=state.machines.map(m=>`
-    <div class="record">
-      <strong>${esc(m.brand)} ${esc(m.model)}</strong>
-      <div>${esc(m.connection)}</div>
-      <div>${esc(m.notes)}</div>
-      <span class="badge">Pendiente de verificar</span>
-      <button class="smallbtn danger" data-machine-delete="${m.id}">Eliminar</button>
-    </div>`).join('')||'<p class="muted">No hay máquinas registradas.</p>';
-
-  $('machineList').querySelectorAll('[data-machine-delete]').forEach(b=>b.onclick=()=>{
-    state.machines=state.machines.filter(m=>m.id!==b.dataset.machineDelete);
-    persist();
-    renderMachines();
-  });
-}
-
-function renderSettings(){
-  $('darkMode').checked=state.settings.dark;
-  $('vibration').checked=state.settings.vibration;
-  $('warnLarge').checked=state.settings.warnLarge;
-  $('textSize').value=String(state.settings.textSize);
-  document.body.classList.toggle('dark',state.settings.dark);
-  document.documentElement.style.fontSize=state.settings.textSize+'px';
-
-  $('customList').innerHTML=state.denoms.filter(d=>!DEFAULTS.includes(d.value)).map(d=>`
-    <div class="record">${fmt(d.value)} CUP ${esc(d.name)}
-      <button class="smallbtn danger" data-custom-delete="${d.value}">Quitar</button>
-    </div>`).join('');
-
-  $('customList').querySelectorAll('[data-custom-delete]').forEach(b=>b.onclick=()=>{
-    if(confirm('¿Quitar esta denominación?')){
-      state.denoms=state.denoms.filter(d=>d.value!==Number(b.dataset.customDelete));
-      delete state.qty[b.dataset.customDelete];
-      persist();
-      renderDenoms();
-      renderSettings();
-      updateTotal();
-    }
-  });
-}
-
-function addMovement(){
-  const amount=Math.floor(Number($('movementAmount').value));
-  const type=$('movementType').value;
-  const reason=$('movementReason').value.trim();
-
-  if(!amount||amount<1){
-    alert('Introduce un importe válido.');
-    return;
-  }
-
-  state.movements.unshift({id:uid(),at:new Date().toISOString(),amount,type,reason});
-  $('movementAmount').value='';
-  $('movementReason').value='';
-  persist();
-  renderCash();
-}
-
-$('saveRecord').onclick=saveRecord;
-
-$('newCount').onclick=()=>{
-  if(units()&&!confirm('¿Empezar un conteo nuevo? El borrador actual se conserva en el historial solo si lo guardaste.'))return;
-  snapshot();
-  state.qty={};
-  activeRecord=null;
-  $('label').value='';
-  $('tag').value='';
-  $('target').value='';
-  $('operator').value='';
-  renderDenoms();
-  updateTotal();
-  goTab('count');
-};
-
-$('clearCount').onclick=()=>{
-  if(confirm('¿Poner todas las cantidades a cero?')){
-    snapshot();
-    state.denoms.forEach(d=>state.qty[d.value]=0);
-    renderDenoms();
-    updateTotal();
-  }
-};
-
-$('undo').onclick=()=>{
-  if(!undoStack.length)return;
-  redoStack.push(JSON.stringify(state.qty));
-  state.qty=JSON.parse(undoStack.pop());
-  renderDenoms();
-  updateTotal();
-};
-
-$('redo').onclick=()=>{
-  if(!redoStack.length)return;
-  undoStack.push(JSON.stringify(state.qty));
-  state.qty=JSON.parse(redoStack.pop());
-  renderDenoms();
-  updateTotal();
-};
-
-['label','tag','target','operator'].forEach(id=>$(id).addEventListener('input',debounceSave));
-['historySearch','dateFrom','dateTo','minTotal','maxTotal'].forEach(id=>$(id).addEventListener('input',renderHistory));
-
-$('filterHistory').onclick=renderHistory;
-$('resetFilters').onclick=()=>{
-  ['historySearch','dateFrom','dateTo','minTotal','maxTotal'].forEach(id=>$(id).value='');
-  renderHistory();
-};
-
-$('exportCsv').onclick=exportCsv;
-$('exportJson').onclick=backup;
-$('backupJson').onclick=backup;
-$('importJson').onclick=()=>$('importFile').click();
-$('importFile').onchange=()=>{
-  if($('importFile').files[0])importBackup($('importFile').files[0]);
-  $('importFile').value='';
-};
-
-$('printReport').onclick=()=>window.print();
-$('reportPeriod').onchange=renderReports;
-$('reportKind').onchange=renderReports;
-
-$('addMovement').onclick=addMovement;
-
-$('saveOpening').onclick=()=>{
-  const n=Number($('openingBalance').value);
-  if(!Number.isFinite(n)||n<0){
-    alert('Saldo no válido');
-    return;
-  }
-  state.opening=n;
-  persist();
-  renderCash();
-};
-
-$('addMachine').onclick=()=>{
-  const brand=$('machineBrand').value.trim();
-  const model=$('machineModel').value.trim();
-
-  if(!brand||!model){
-    alert('Indica marca y modelo exacto.');
-    return;
-  }
-
-  state.machines.push({
-    id:uid(),
-    brand,
-    model,
-    connection:$('machineConnection').value,
-    notes:$('machineNotes').value.trim(),
-    verified:false
-  });
-
-  ['machineBrand','machineModel','machineNotes'].forEach(id=>$(id).value='');
-  persist();
-  renderMachines();
-};
-
-$('saveSettings').onclick=()=>{
-  state.settings={
-    dark:$('darkMode').checked,
-    vibration:$('vibration').checked,
-    warnLarge:$('warnLarge').checked,
-    textSize:Number($('textSize').value)
-  };
-  persist();
-  renderSettings();
-};
-
-$('addDenomination').onclick=()=>{
-  const value=Math.floor(Number($('customValue').value));
-  const name=$('customName').value.trim();
-
-  if(!value||value<1||state.denoms.some(d=>d.value===value)){
-    alert('Valor inválido o ya existente.');
-    return;
-  }
-
-  state.denoms.push({value,name});
-  state.denoms.sort((a,b)=>b.value-a.value);
-  state.qty[value]=0;
-  $('customValue').value='';
-  $('customName').value='';
-  persist();
-  renderDenoms();
-  renderSettings();
-  updateTotal();
-};
-
-$('deleteLocal').onclick=()=>{
-  if(confirm('Esto borrará los conteos, movimientos, máquinas y preferencias guardados en este dispositivo. Exporta primero una copia. ¿Continuar?')){
-    localStorage.removeItem(KEY);
-    location.reload();
-  }
-};
-
-$('darkMode').onchange=()=>{
-  document.body.classList.toggle('dark',$('darkMode').checked);
-};
-
-$('textSize').onchange=()=>{
-  document.documentElement.style.fontSize=$('textSize').value+'px';
-};
-
-document.addEventListener('visibilitychange',()=>{
-  if(document.visibilityState==='hidden')persist();
-});
-
-window.addEventListener('beforeunload',e=>{
-  persist();
-  if(units()){
-    e.preventDefault();
-    e.returnValue='';
-  }
-});
-
-document.addEventListener('gesturestart',e=>e.preventDefault(),{passive:false});
-
-readState();
-
-state.denoms.forEach(d=>{
-  if(state.qty[d.value]===undefined)state.qty[d.value]=0;
-});
-
-$('label').value=state.draft.label||'';
-$('tag').value=state.draft.tag||'';
-$('target').value=state.draft.target||'';
-$('operator').value=state.draft.operator||'';
-$('openingBalance').value=state.opening||0;
-
-renderDenoms();
-updateTotal();
-renderSettings();
-renderHistory();
-renderCash();
-renderMachines();
-
-if('serviceWorker' in navigator && location.protocol.startsWith('http')){
-  navigator.serviceWorker.register('./sw.js').catch(()=>{});
-}
-</script>
+    <script type="module" src="./js/app.js"></script>
 </body>
 </html>
