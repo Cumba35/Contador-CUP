@@ -1,4 +1,5 @@
-// js/cash/movements.js
+
+ // js/cash/movements.js
 
 import { getState, setState } from "../state.js";
 import { readStorage, writeStorage } from "../storage.js";
@@ -16,11 +17,35 @@ const MOVEMENT_TYPES = Object.freeze({
 function validateAmount(value) {
     const amount = Number(value);
 
-    if (!Number.isSafeInteger(amount) || amount <= 0) {
-        throw new Error("El importe debe ser un entero positivo.");
+    if (!Number.isFinite(amount) || amount <= 0) {
+        throw new Error("El importe debe ser un número positivo.");
     }
 
-    return amount;
+    const cents = Math.round(amount * 100);
+
+    if (
+        !Number.isSafeInteger(cents) ||
+        Math.abs(amount * 100 - cents) > 1e-7
+    ) {
+        throw new Error("El importe debe tener como máximo dos decimales.");
+    }
+
+    return cents / 100;
+}
+
+function toCents(value) {
+    const amount = Number(value ?? 0);
+
+    if (!Number.isFinite(amount)) {
+        return 0;
+    }
+
+    const cents = Math.round(amount * 100);
+    return Number.isSafeInteger(cents) ? cents : 0;
+}
+
+function fromCents(cents) {
+    return cents / 100;
 }
 
 function validateText(value, field, maximum = 200) {
@@ -50,29 +75,33 @@ function saveMovements(movements) {
     return movements;
 }
 
-function calculateMovementEffect(movement) {
-    const amount = Number(movement.amount) || 0;
+function calculateMovementEffectCents(movement) {
+    const cents = toCents(movement.amount);
 
     switch (movement.type) {
         case MOVEMENT_TYPES.INCOME:
-            return amount;
-        case MOVEMENT_TYPES.EXPENSE:
-            return -amount;
         case MOVEMENT_TYPES.ADJUSTMENT:
-            return amount;
+            return cents;
+        case MOVEMENT_TYPES.EXPENSE:
+            return -cents;
         default:
             return 0;
     }
 }
 
 function recalculateBalance(movements = getMovements()) {
-    const openingBalance = Number(getState().cash.openingBalance) || 0;
+    const openingBalanceCents = toCents(getState().cash.openingBalance);
 
-    const balance = movements.reduce(
-        (total, movement) => total + calculateMovementEffect(movement),
-        openingBalance
+    const balanceCents = movements.reduce(
+        (total, movement) => total + calculateMovementEffectCents(movement),
+        openingBalanceCents
     );
 
+    if (!Number.isSafeInteger(balanceCents)) {
+        throw new Error("El saldo de caja supera el límite numérico permitido.");
+    }
+
+    const balance = fromCents(balanceCents);
     setState("cash.currentBalance", balance);
 
     return balance;
@@ -97,6 +126,8 @@ export function addCashMovement(data = {}) {
         throw new Error("Selecciona un tipo de movimiento válido.");
     }
 
+    const now = new Date().toISOString();
+
     const movement = {
         id: generateId("movement"),
         type,
@@ -104,8 +135,8 @@ export function addCashMovement(data = {}) {
         description: validateText(data.description, "La descripción"),
         reference: String(data.reference ?? "").trim().slice(0, 100),
         notes: String(data.notes ?? "").trim().slice(0, 1000),
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
+        createdAt: now,
+        updatedAt: now
     };
 
     saveMovements([...getMovements(), movement]);
@@ -181,7 +212,9 @@ export function setOpeningBalance(value) {
     const amount = Number(value);
 
     if (!Number.isSafeInteger(amount) || amount < 0) {
-        throw new Error("El saldo inicial debe ser un entero igual o mayor que cero.");
+        throw new Error(
+            "El saldo inicial debe ser un entero igual o mayor que cero."
+        );
     }
 
     setState("cash.openingBalance", amount);
@@ -197,24 +230,36 @@ export function getCashBalance() {
 export function getCashSummary() {
     const movements = getMovements();
 
-    const income = movements
-        .filter(item => item.type === MOVEMENT_TYPES.INCOME)
-        .reduce((sum, item) => sum + Number(item.amount), 0);
+    const totals = {
+        income: 0,
+        expenses: 0,
+        adjustments: 0
+    };
 
-    const expenses = movements
-        .filter(item => item.type === MOVEMENT_TYPES.EXPENSE)
-        .reduce((sum, item) => sum + Number(item.amount), 0);
+    for (const movement of movements) {
+        const cents = toCents(movement.amount);
 
-    const adjustments = movements
-        .filter(item => item.type === MOVEMENT_TYPES.ADJUSTMENT)
-        .reduce((sum, item) => sum + Number(item.amount), 0);
+        switch (movement.type) {
+            case MOVEMENT_TYPES.INCOME:
+                totals.income += cents;
+                break;
+            case MOVEMENT_TYPES.EXPENSE:
+                totals.expenses += cents;
+                break;
+            case MOVEMENT_TYPES.ADJUSTMENT:
+                totals.adjustments += cents;
+                break;
+            default:
+                break;
+        }
+    }
 
     return {
         openingBalance: Number(getState().cash.openingBalance) || 0,
-        income,
-        expenses,
-        adjustments,
-        currentBalance: recalculateBalance(),
+        income: fromCents(totals.income),
+        expenses: fromCents(totals.expenses),
+        adjustments: fromCents(totals.adjustments),
+        currentBalance: recalculateBalance(movements),
         movementCount: movements.length
     };
 }
