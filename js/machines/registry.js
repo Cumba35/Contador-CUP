@@ -1,3 +1,4 @@
+
 // js/machines/registry.js
 
 import { getState, setState } from "../state.js";
@@ -58,8 +59,6 @@ function validateOptionalImage(value) {
         throw new Error("La referencia de imagen es demasiado larga.");
     }
 
-    // Se aceptan rutas relativas o URL HTTP(S).
-    // No se permiten esquemas ejecutables como javascript:.
     if (
         /^(javascript|data|vbscript):/i.test(image) ||
         image.startsWith("//")
@@ -141,9 +140,8 @@ export function registerMachine(data = {}) {
     }
 
     const type = validateChoice(data.type, MACHINE_TYPES, "tipo de máquina");
-
-    const brand = validateText(data.brand, "La marca", 100);
-    const model = validateText(data.model, "El modelo", 100);
+    const brand = validateText(data.brand, "La marca", 100, false);
+    const model = validateText(data.model, "El modelo", 100, false);
 
     const connectionType = validateChoice(
         data.connectionType ?? MACHINE_CONNECTION_TYPES.UNKNOWN,
@@ -151,15 +149,17 @@ export function registerMachine(data = {}) {
         "tipo de conexión"
     );
 
+    const name = validateText(
+        data.name || [brand, model].filter(Boolean).join(" "),
+        "El nombre",
+        150
+    );
+
     const now = new Date().toISOString();
 
     const machine = {
         id: generateId("machine"),
-        name: validateText(
-            data.name || `${brand} ${model}`,
-            "El nombre",
-            150
-        ),
+        name,
         type,
         brand,
         model,
@@ -236,11 +236,21 @@ export function updateMachine(id, changes = {}) {
     }
 
     if (changes.brand !== undefined) {
-        updated.brand = validateText(changes.brand, "La marca", 100);
+        updated.brand = validateText(
+            changes.brand,
+            "La marca",
+            100,
+            false
+        );
     }
 
     if (changes.model !== undefined) {
-        updated.model = validateText(changes.model, "El modelo", 100);
+        updated.model = validateText(
+            changes.model,
+            "El modelo",
+            100,
+            false
+        );
     }
 
     if (changes.serialNumber !== undefined) {
@@ -285,7 +295,6 @@ export function updateMachine(id, changes = {}) {
             "tipo de conexión"
         );
 
-        // Un cambio de conexión requiere verificar nuevamente la compatibilidad.
         updated.protocolVerified = false;
         updated.automaticCountingEnabled = false;
         updated.connectionStatus = "not-verified";
@@ -313,7 +322,6 @@ export function updateMachine(id, changes = {}) {
         updated.connectionStatus = "not-verified";
     }
 
-    // Estos campos no pueden activarse manualmente mediante este módulo.
     updated.protocolVerified = false;
     updated.automaticCountingEnabled = false;
     updated.connectionStatus = "not-verified";
