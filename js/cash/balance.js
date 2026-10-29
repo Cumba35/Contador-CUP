@@ -1,15 +1,25 @@
-// js/cash/balance.js
 
 import { getState } from "../state.js";
 import { listCashMovements } from "./movements.js";
 
-function toAmount(value) {
+function toCents(value) {
     const amount = Number(value ?? 0);
-    return Number.isSafeInteger(amount) ? amount : 0;
+
+    if (!Number.isFinite(amount)) {
+        return 0;
+    }
+
+    const cents = Math.round(amount * 100);
+
+    return Number.isSafeInteger(cents) ? cents : 0;
 }
 
-function getMovementEffect(movement) {
-    const amount = toAmount(movement.amount);
+function fromCents(cents) {
+    return cents / 100;
+}
+
+function getMovementEffectCents(movement) {
+    const amount = toCents(movement.amount);
 
     switch (movement.type) {
         case "income":
@@ -23,7 +33,7 @@ function getMovementEffect(movement) {
 }
 
 export function calculateCashBalance(options = {}) {
-    const openingBalance = toAmount(
+    const openingBalance = toCents(
         options.openingBalance ?? getState().cash.openingBalance
     );
 
@@ -31,17 +41,23 @@ export function calculateCashBalance(options = {}) {
         ? options.movements
         : listCashMovements();
 
-    return movements.reduce(
-        (balance, movement) => balance + getMovementEffect(movement),
+    const balance = movements.reduce(
+        (total, movement) => total + getMovementEffectCents(movement),
         openingBalance
     );
+
+    if (!Number.isSafeInteger(balance)) {
+        throw new Error("El saldo de caja supera el límite numérico permitido.");
+    }
+
+    return fromCents(balance);
 }
 
 export function getCashBalanceBreakdown() {
     const movements = listCashMovements();
 
     const summary = {
-        openingBalance: toAmount(getState().cash.openingBalance),
+        openingBalance: toCents(getState().cash.openingBalance),
         income: 0,
         expenses: 0,
         adjustments: 0,
@@ -49,7 +65,7 @@ export function getCashBalanceBreakdown() {
     };
 
     for (const movement of movements) {
-        const amount = toAmount(movement.amount);
+        const amount = toCents(movement.amount);
 
         switch (movement.type) {
             case "income":
@@ -66,13 +82,27 @@ export function getCashBalanceBreakdown() {
         }
     }
 
-    summary.netMovement =
+    const netMovement =
         summary.income - summary.expenses + summary.adjustments;
 
-    summary.currentBalance =
-        summary.openingBalance + summary.netMovement;
+    const currentBalance = summary.openingBalance + netMovement;
 
-    return summary;
+    if (
+        !Number.isSafeInteger(netMovement) ||
+        !Number.isSafeInteger(currentBalance)
+    ) {
+        throw new Error("El saldo de caja supera el límite numérico permitido.");
+    }
+
+    return {
+        openingBalance: fromCents(summary.openingBalance),
+        income: fromCents(summary.income),
+        expenses: fromCents(summary.expenses),
+        adjustments: fromCents(summary.adjustments),
+        movementCount: summary.movementCount,
+        netMovement: fromCents(netMovement),
+        currentBalance: fromCents(currentBalance)
+    };
 }
 
 export function getCashBalanceAt(date) {
@@ -93,12 +123,14 @@ export function getCashBalanceAt(date) {
 
 export function verifyCashBalance() {
     const calculated = calculateCashBalance();
-    const stored = toAmount(getState().cash.currentBalance);
+    const stored = fromCents(toCents(getState().cash.currentBalance));
 
     return {
         consistent: calculated === stored,
         calculatedBalance: calculated,
         storedBalance: stored,
-        difference: calculated - stored
+        difference: fromCents(
+            toCents(calculated) - toCents(stored)
+        )
     };
 }
