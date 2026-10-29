@@ -1,3 +1,4 @@
+
 // js/backup/import.js
 
 import { APP_CONFIG } from "../config.js";
@@ -9,6 +10,7 @@ import {
 import { setState } from "../state.js";
 
 const MAX_FILE_BYTES = APP_CONFIG.limits.importedFileBytes;
+
 const ALLOWED_FORMATS = new Set([
     "contador-cup-backup",
     undefined
@@ -54,10 +56,11 @@ function validateBackup(backup) {
 function normalizeImportedData(backup) {
     const data = { ...backup.data };
 
-    if (data.settings !== undefined) {
-        if (!data.settings || typeof data.settings !== "object" || Array.isArray(data.settings)) {
-            throw new Error("La configuración del respaldo no es válida.");
-        }
+    if (
+        data.settings !== undefined &&
+        (!data.settings || typeof data.settings !== "object" || Array.isArray(data.settings))
+    ) {
+        throw new Error("La configuración del respaldo no es válida.");
     }
 
     if (data.denominations !== undefined && !Array.isArray(data.denominations)) {
@@ -228,7 +231,8 @@ export function restoreRestorePoint(restorePoint) {
         !restorePoint ||
         restorePoint.application !== APP_CONFIG.name ||
         !restorePoint.data ||
-        typeof restorePoint.data !== "object"
+        typeof restorePoint.data !== "object" ||
+        Array.isArray(restorePoint.data)
     ) {
         throw new Error("El punto de restauración no es válido.");
     }
@@ -253,7 +257,7 @@ export function restoreRestorePoint(restorePoint) {
     } catch (error) {
         for (const key of allowedKeys) {
             try {
-                if (previousValues[key] !== null) {
+                if (previousValues[key] !== null && previousValues[key] !== undefined) {
                     writeStorage(key, previousValues[key]);
                 }
             } catch (rollbackError) {
