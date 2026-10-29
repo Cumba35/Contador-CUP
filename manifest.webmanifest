@@ -1,0 +1,42 @@
+{
+  "id": "./",
+  "name": "Contador de Efectivo CUP",
+  "short_name": "Contador CUP",
+  "description": "Aplicación de Nova Apps para contar, registrar y administrar efectivo en pesos cubanos (CUP).",
+  "lang": "es-CU",
+  "dir": "ltr",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#f4f7fb",
+  "theme_color": "#1455c0",
+  "categories": [
+    "finance",
+    "utilities",
+    "productivity"
+  ],
+  "prefer_related_applications": false,
+  "icons": [
+    {
+      "src": "./icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Nuevo conteo",
+      "short_name": "Contar",
+      "description": "Abrir el contador de efectivo",
+      "url": "./#counter"
+    },
+    {
+      "name": "Historial",
+      "short_name": "Historial",
+      "description": "Consultar conteos guardados",
+      "url": "./#history"
+    }
+  ]
+}
