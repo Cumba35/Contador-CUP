@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">Contador CUP</title>
+  <desc id="desc">Icono de una aplicación para contar efectivo.</desc>
+
+  <defs>
+    <linearGradient id="background" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#1769e0"/>
+      <stop offset="100%" stop-color="#103b91"/>
+    </linearGradient>
+
+    <linearGradient id="bill" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#a8efc2"/>
+      <stop offset="100%" stop-color="#56c78c"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="512" height="512" rx="112" fill="url(#background)"/>
+
+  <rect x="82" y="125" width="348" height="224" rx="25"
+        fill="url(#bill)" stroke="#e5fff0" stroke-width="12"/>
+
+  <rect x="106" y="149" width="300" height="176" rx="16"
+        fill="none" stroke="#176c49" stroke-width="7"/>
+
+  <circle cx="256" cy="237" r="64"
+          fill="#e7fff0" stroke="#176c49" stroke-width="8"/>
+
+  <path d="M256 190v94M280 207c-8-12-20-17-32-13-28 8-24 35 4 42l12 3c30 8 25 35-4 42-14 3-29-3-38-16"
+        fill="none" stroke="#176c49" stroke-width="12"
+        stroke-linecap="round" stroke-linejoin="round"/>
+
+  <rect x="110" y="365" width="292" height="74" rx="20"
+        fill="#ffffff"/>
+
+  <text x="256" y="414"
+        text-anchor="middle"
+        font-family="Arial, Helvetica, sans-serif"
+        font-size="46"
+        font-weight="800"
+        letter-spacing="3"
+        fill="#103b91">CUP</text>
+
+  <circle cx="112" cy="112" r="12" fill="#ffffff" opacity=".8"/>
+  <circle cx="400" cy="392" r="10" fill="#56c78c"/>
+</svg>
