@@ -1,0 +1,266 @@
+/* assets/css/responsive.css */
+
+/* Tablets y pantallas medianas */
+
+@media (max-width: 1024px) {
+    :root {
+        --content-width: 100%;
+    }
+
+    .app-main {
+        min-width: 0;
+    }
+
+    .content-grid {
+        gap: var(--space-3);
+    }
+
+    .stat-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .machine-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+/* Teléfonos */
+
+@media (max-width: 760px) {
+    .app-header {
+        position: sticky;
+        gap: var(--space-2);
+    }
+
+    .header-actions {
+        gap: var(--space-1);
+    }
+
+    .header-actions .btn:not(.mobile-menu-button),
+    .header-actions .btn-icon:not(.mobile-menu-button) {
+        min-width: var(--tap-target-size);
+    }
+
+    .page-header {
+        gap: var(--space-3);
+    }
+
+    .page-heading {
+        width: 100%;
+    }
+
+    .page-actions {
+        width: 100%;
+    }
+
+    .page-actions .btn {
+        flex: 1 1 auto;
+    }
+
+    .content-grid {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .content-grid > * {
+        grid-column: 1 / -1;
+    }
+
+    .stat-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .machine-grid {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .table-container {
+        overscroll-behavior-x: contain;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .table-container table {
+        min-width: 520px;
+    }
+
+    .form-actions {
+        justify-content: stretch;
+    }
+
+    .form-actions .btn {
+        flex: 1 1 auto;
+    }
+}
+
+/* Teléfonos estrechos */
+
+@media (max-width: 400px) {
+    :root {
+        --space-4: 0.875rem;
+        --space-5: 1rem;
+        --space-6: 1.125rem;
+    }
+
+    .app-header {
+        padding-inline: var(--space-2);
+    }
+
+    .app-brand {
+        gap: var(--space-2);
+    }
+
+    .app-brand-title {
+        max-width: 145px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .app-main {
+        padding: var(--space-3);
+    }
+
+    .stat-grid {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .denomination-controls {
+        grid-template-columns: 40px minmax(0, 1fr) 40px;
+    }
+
+    .denomination-controls .btn-icon {
+        width: 40px;
+        min-width: 40px;
+    }
+
+    .counter-total {
+        padding: var(--space-4);
+    }
+
+    .counter-total-value {
+        font-size: 1.65rem;
+    }
+
+    .btn {
+        overflow-wrap: anywhere;
+    }
+
+    .form-row {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
+/* Pantallas grandes */
+
+@media (min-width: 1440px) {
+    .app-main {
+        padding: var(--space-8);
+    }
+
+    .denomination-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+}
+
+/* Orientación horizontal en teléfonos */
+
+@media (max-width: 900px) and (orientation: landscape) {
+    .app-sidebar {
+        max-height: calc(100dvh - var(--header-height));
+        overflow-y: auto;
+    }
+
+    .modal {
+        max-height: 90dvh;
+        overflow-y: auto;
+    }
+}
+
+/* Accesibilidad y preferencias del sistema */
+
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        scroll-behavior: auto !important;
+        animation: none !important;
+        transition: none !important;
+    }
+}
+
+@media (hover: none) and (pointer: coarse) {
+    .btn,
+    .btn-icon,
+    .sidebar-link,
+    .tab {
+        min-height: var(--tap-target-size);
+    }
+
+    .btn:hover:not(:disabled) {
+        filter: none;
+    }
+}
+
+@media print {
+    :root {
+        color-scheme: light;
+    }
+
+    body {
+        background: #fff !important;
+        color: #000 !important;
+        font-size: 10pt;
+    }
+
+    .app-header,
+    .app-sidebar,
+    .sidebar-overlay,
+    .mobile-menu-button,
+    .header-actions,
+    .page-actions,
+    .btn,
+    .toast-container,
+    .app-footer {
+        display: none !important;
+    }
+
+    .app-shell,
+    .app-body {
+        display: block;
+        min-height: 0;
+    }
+
+    .app-main {
+        padding: 0;
+    }
+
+    .panel,
+    .card,
+    .stat-card,
+    .denomination-card,
+    .machine-card {
+        break-inside: avoid;
+        border-color: #ccc;
+        background: #fff !important;
+        box-shadow: none;
+    }
+
+    .table-container {
+        overflow: visible;
+        border-color: #ccc;
+    }
+
+    .table-container table {
+        min-width: 0;
+    }
+
+    th,
+    td {
+        border-color: #ccc;
+        color: #000 !important;
+    }
+
+    a {
+        color: #000;
+        text-decoration: none;
+    }
+}
