@@ -1,4 +1,3 @@
-
 // js/app.js
 
 import { APP_CONFIG } from "./config.js";
@@ -499,6 +498,40 @@ async function handleFormSubmit(event) {
     });
 }
 
+async function copyDonationValue(inputId, description) {
+    const input = el(inputId);
+    const content = input?.value?.trim();
+
+    if (!content) {
+        throw new Error(`No se encontró ${description}.`);
+    }
+
+    if (navigator.clipboard?.writeText && window.isSecureContext) {
+        await navigator.clipboard.writeText(content);
+    } else {
+        const temporaryInput = document.createElement("textarea");
+
+        temporaryInput.value = content;
+        temporaryInput.setAttribute("readonly", "");
+        temporaryInput.style.position = "fixed";
+        temporaryInput.style.opacity = "0";
+        temporaryInput.style.pointerEvents = "none";
+
+        document.body.appendChild(temporaryInput);
+        temporaryInput.select();
+        temporaryInput.setSelectionRange(0, temporaryInput.value.length);
+
+        const copied = document.execCommand("copy");
+        temporaryInput.remove();
+
+        if (!copied) {
+            throw new Error("No se pudo copiar. Selecciona y copia el dato manualmente.");
+        }
+    }
+
+    notify(`${description} copiado.`, "success");
+}
+
 async function handleClick(event) {
     const button = event.target.closest("[data-action]");
 
@@ -773,6 +806,14 @@ async function handleClick(event) {
 
                 break;
             }
+
+            case "copy-donation-card":
+                await copyDonationValue("donation-card", "Número de tarjeta");
+                break;
+
+            case "copy-donation-phone":
+                await copyDonationValue("donation-phone", "Número de teléfono");
+                break;
 
             case "open-nova-home":
                 openNovaAppsHome();
