@@ -52,6 +52,11 @@ function calculateTotal(quantities, denominations) {
         }
 
         const validQuantity = validateQuantity(quantity);
+
+        if (!denomination.enabled) {
+            continue;
+        }
+
         const subtotal = denomination.value * validQuantity;
 
         if (!Number.isSafeInteger(subtotal)) {
@@ -96,6 +101,7 @@ export function getCounterQuantities() {
 
 export function getSubtotal(denominationId) {
     const state = getState();
+
     const denomination = state.denominations.find(
         item => item.id === denominationId
     );
@@ -202,6 +208,7 @@ export function loadCounterQuantities(quantities = {}) {
 
     for (const denomination of getState().denominations) {
         const rawQuantity = quantities[denomination.id] ?? 0;
+
         normalized[denomination.id] = validateQuantity(rawQuantity);
     }
 
