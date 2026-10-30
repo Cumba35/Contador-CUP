@@ -598,371 +598,49 @@
                     <button class="btn btn-secondary" type="button" data-action="navigate" data-view="settings">Configuración</button>
                     <button class="btn btn-secondary" type="button" data-action="navigate" data-view="backup">Copias de seguridad</button>
                     <button class="btn btn-secondary" type="button" data-action="navigate" data-view="about">Acerca de</button>
-                    <button class="btn btn-secondary" type="button" data-action="navigate" data-view="nova-apps">Otras aplicaciones</button>
-                </nav>
-            </aside>
-
-            <main class="app-main">
-                <div id="app-error" class="panel danger-zone" role="alert" hidden></div>
-
-                <section data-view-panel="counter" class="page-panel">
-                    <div class="page-heading">
-                        <div>
-                            <h2 id="page-title">Contador de efectivo</h2>
-                            <p>Introduce las cantidades para calcular el efectivo total.</p>
-                        </div>
-                    </div>
-
-                    <div class="stat-grid">
-                        <article class="stat-card">
-                            <span>Total contado</span>
-                            <strong id="counter-total">0,00 CUP</strong>
-                        </article>
-                        <article class="stat-card">
-                            <span>Total de billetes</span>
-                            <strong id="counter-bills">0</strong>
-                        </article>
-                        <article class="stat-card">
-                            <span>Denominaciones activas</span>
-                            <strong id="counter-denomination-count">0</strong>
-                        </article>
-                    </div>
-
-                    <section class="panel">
-                        <div class="panel-heading">
-                            <h3>Conteo actual</h3>
-                            <span id="current-draft-name" class="text-muted">Conteo sin guardar</span>
-                        </div>
-
-                        <div class="toolbar">
-                            <button id="undo-button" class="btn btn-secondary" type="button" data-action="undo" disabled>Deshacer</button>
-                            <button id="redo-button" class="btn btn-secondary" type="button" data-action="redo" disabled>Rehacer</button>
-                            <button class="btn btn-secondary" type="button" data-action="reset-counter">Limpiar conteo</button>
-                        </div>
-
-                        <div id="denomination-list" class="denomination-grid" style="margin-top:16px"></div>
-                    </section>
-
-                    <section class="panel">
-                        <h3>Guardar conteo</h3>
-
-                        <form data-app-form="save-count">
-                            <div class="form-grid">
-                                <div class="form-field">
-                                    <label for="count-name">Nombre del conteo</label>
-                                    <input id="count-name" name="name" type="text" maxlength="120" placeholder="Ej.: Caja principal">
-                                </div>
-
-                                <div class="form-field">
-                                    <label for="count-notes">Notas</label>
-                                    <input id="count-notes" name="notes" type="text" maxlength="500" placeholder="Observaciones opcionales">
-                                </div>
-                            </div>
-
-                            <div class="form-actions" style="margin-top:14px">
-                                <button class="btn btn-primary" type="submit">Guardar en historial</button>
-                            </div>
-                        </form>
-                    </section>
-
-                    <section class="panel">
-                        <h3>Guardar borrador</h3>
-
-                        <form data-app-form="save-draft">
                             <div class="form-field">
-                                <label for="draft-name">Nombre del borrador</label>
-                                <input id="draft-name" name="draftName" type="text" maxlength="120" placeholder="Ej.: Conteo pendiente">
-                            </div>
-
-                            <div class="form-actions" style="margin-top:14px">
-                                <button class="btn btn-primary" type="submit">Guardar borrador</button>
-                                <button class="btn btn-secondary" type="button" data-action="save-draft-as-new">Guardar como nuevo</button>
-                            </div>
-                        </form>
-                    </section>
-                </section>
-
-                <section data-view-panel="drafts" class="page-panel" hidden>
-                    <div class="page-heading">
-                        <div>
-                            <h2 id="drafts-page-title">Borradores</h2>
-                            <p>Continúa los conteos que guardaste anteriormente.</p>
-                        </div>
-                    </div>
-                    <div id="draft-list" class="list-stack"></div>
-                </section>
-
-                <section data-view-panel="history" class="page-panel" hidden>
-                    <div class="page-heading">
-                        <div>
-                            <h2>Historial de conteos</h2>
-                            <p>Consulta, recupera o exporta registros anteriores.</p>
-                        </div>
-                    </div>
-
-                    <section class="panel">
-                        <h3>Filtros</h3>
-
-                        <div class="form-grid">
-                            <div class="form-field">
-                                <label for="history-search">Buscar</label>
-                                <input id="history-search" data-history-filter type="search" placeholder="Nombre o notas">
-                            </div>
-
-                            <div class="form-field">
-                                <label for="history-start-date">Desde</label>
-                                <input id="history-start-date" data-history-filter type="date">
-                            </div>
-
-                            <div class="form-field">
-                                <label for="history-end-date">Hasta</label>
-                                <input id="history-end-date" data-history-filter type="date">
-                            </div>
-
-                            <div class="form-field">
-                                <label for="history-min-amount">Importe mínimo</label>
-                                <input id="history-min-amount" data-history-filter type="number" min="0" step="0.01">
-                            </div>
-
-                            <div class="form-field">
-                                <label for="history-max-amount">Importe máximo</label>
-                                <input id="history-max-amount" data-history-filter type="number" min="0" step="0.01">
-                            </div>
-                        </div>
-
-                        <div class="form-actions" style="margin-top:14px">
-                            <button class="btn btn-secondary" type="button" data-action="export-history">Exportar historial CSV</button>
-                            <button class="btn btn-secondary" type="button" data-action="navigate" data-view="comparison">Comparar conteos</button>
-                        </div>
-                    </section>
-
-                    <div id="history-list" class="list-stack"></div>
-                </section>
-
-                <section data-view-panel="comparison" class="page-panel" hidden>
-                    <div class="page-heading">
-                        <div>
-                            <h2>Comparación de conteos</h2>
-                            <p>Selecciona registros guardados para compararlos.</p>
-                        </div>
-                    </div>
-
-                    <section class="panel">
-                        <div class="form-grid">
-                            <div class="form-field">
-                                <label for="comparison-record-a">Primer conteo</label>
-                                <select id="comparison-record-a">
-                                    <option value="">Selecciona un conteo</option>
+                                <label for="movement-type">Tipo de movimiento</label>
+                                <select id="movement-type">
+                                    <option value="income">Entrada</option>
+                                    <option value="expense">Salida</option>
+                                    <option value="adjustment">Ajuste</option>
                                 </select>
                             </div>
 
                             <div class="form-field">
-                                <label for="comparison-record-b">Segundo conteo</label>
-                                <select id="comparison-record-b">
-                                    <option value="">Selecciona un conteo</option>
-                                </select>
+                                <label for="movement-amount">Importe (CUP)</label>
+                                <input id="movement-amount" type="number" min="0.01" step="0.01">
+                            </div>
+
+                            <div class="form-field">
+                                <label for="movement-description">Descripción</label>
+                                <input id="movement-description" type="text" maxlength="160">
+                            </div>
+
+                            <div class="form-field">
+                                <label for="movement-reference">Referencia</label>
+                                <input id="movement-reference" type="text" maxlength="120">
+                            </div>
+
+                            <div class="form-field">
+                                <label for="movement-notes">Notas</label>
+                                <input id="movement-notes" type="text" maxlength="500">
                             </div>
                         </div>
 
                         <div class="form-actions" style="margin-top:14px">
-                            <button class="btn btn-primary" type="button" data-action="compare-records">Comparar</button>
+                            <button class="btn btn-primary" type="button" data-action="save-opening-balance">Guardar saldo inicial</button>
+                            <button class="btn btn-primary" type="button" data-action="add-cash-movement">Registrar movimiento</button>
                         </div>
-
-                        <div id="comparison-result" class="list-stack" style="margin-top:16px"></div>
-                    </section>
-                </section>
-
-                <section data-view-panel="reports" class="page-panel" hidden>
-                    <div class="page-heading">
-                        <div>
-                            <h2>Informes y estadísticas</h2>
-                            <p>Resumen de los conteos almacenados.</p>
-                        </div>
-                    </div>
-
-                    <div class="stat-grid">
-                        <article class="stat-card">
-                            <span>Conteos guardados</span>
-                            <strong id="report-count">0</strong>
-                        </article>
-                        <article class="stat-card">
-                            <span>Importe acumulado</span>
-                            <strong id="report-total">0,00 CUP</strong>
-                        </article>
-                        <article class="stat-card">
-                            <span>Billetes registrados</span>
-                            <strong id="report-bills">0</strong>
-                        </article>
-                        <article class="stat-card">
-                            <span>Promedio por conteo</span>
-                            <strong id="report-average">0,00 CUP</strong>
-                        </article>
-                    </div>
-
-                    <section class="panel">
-                        <h3>Periodo del informe</h3>
-
-                        <div class="form-grid">
-                            <div class="form-field">
-                                <label for="report-start-date">Desde</label>
-                                <input id="report-start-date" type="date">
-                            </div>
-                            <div class="form-field">
-                                <label for="report-end-date">Hasta</label>
-                                <input id="report-end-date" type="date">
-                            </div>
-                        </div>
-
-                        <div class="form-actions" style="margin-top:14px">
-                            <button class="btn btn-secondary" type="button" data-action="export-daily">Exportar estadísticas diarias</button>
-                            <button class="btn btn-secondary" type="button" data-action="export-denominations">Exportar por denominación</button>
-                        </div>
-                    </section>
-
-                    <section class="panel">
-                        <h3>Actividad diaria</h3>
-                        <div class="table-wrapper">
-                            <table>
-                                <thead>
-                                    <tr>
-                                        <th>Fecha</th>
-                                        <th>Conteos</th>
-                                        <th>Importe</th>
-                                        <th>Billetes</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="daily-report-list">
-                                    <tr><td colspan="4">No hay datos disponibles.</td></tr>
-                                </tbody>
-                            </table>
-                        </div>
-                    </section>
-
-                    <section class="panel">
-                        <h3>Por denominación</h3>
-                        <div class="table-wrapper">
-                            <table>
-                                <thead>
-                                    <tr>
-                                        <th>Denominación</th>
-                                        <th>Cantidad</th>
-                                        <th>Subtotal</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="denomination-report-list"></tbody>
-                            </table>
-                        </div>
-                    </section>
-                </section>
-
-                <section data-view-panel="cash" class="page-panel" hidden>
-                    <div class="page-heading">
-                        <div>
-                            <h2>Administración de caja</h2>
-                            <p>Registra entradas, salidas y ajustes del efectivo.</p>
-                        </div>
-                    </div>
-
-                    <div class="stat-grid">
-                        <article class="stat-card">
-                            <span>Saldo inicial</span>
-                            <strong id="cash-opening-balance">0,00 CUP</strong>
-                        </article>
-                        <article class="stat-card">
-                            <span>Entradas</span>
-                            <strong id="cash-income">0,00 CUP</strong>
-                        </article>
-                        <article class="stat-card">
-                            <span>Salidas</span>
-                            <strong id="cash-expenses">0,00 CUP</strong>
-                        </article>
-                        <article class="stat-card">
-                            <span>Ajustes</span>
-                            <strong id="cash-adjustments">0,00 CUP</strong>
-                        </article>
-                        <article class="stat-card">
-                            <span>Saldo calculado</span>
-                            <strong id="cash-current-balance">0,00 CUP</strong>
-                        </article>
-                        <article class="stat-card">
-                            <span>Movimientos</span>
-                            <strong id="cash-movement-count">0</strong>
-                        </article>
-                    </div>
-
-                    <section class="panel">
-                        <h3>Saldo inicial</h3>
-
-                        <div class="form-grid">
-                            <div class="form-field">
-                                <label for="opening-balance-input">Importe inicial (CUP)</label>
-                                <input id="opening-balance-input" type="number" min="0" step="0.01" value="0">
-                            </div>
-                        </div>
-
-                        <div class="form-actions" style="margin-top:14px">
-                            <button class="btn btn-primary" type="button" data-action="set-opening-balance">Guardar saldo inicial</button>
-                        </div>
-                    </section>
-
-                    <section class="panel">
-                        <h3>Registrar movimiento</h3>
-
-                        <form data-app-form="add-cash-movement">
-                            <div class="form-grid">
-                                <div class="form-field">
-                                    <label for="movement-type">Tipo de movimiento</label>
-                                    <select id="movement-type" required>
-                                        <option value="income">Entrada</option>
-                                        <option value="expense">Salida</option>
-                                        <option value="adjustment">Ajuste</option>
-                                    </select>
-                                </div>
-
-                                <div class="form-field">
-                                    <label for="movement-amount">Importe (CUP)</label>
-                                    <input id="movement-amount" type="number" min="0.01" step="0.01" required>
-                                </div>
-
-                                <div class="form-field">
-                                    <label for="movement-description">Descripción</label>
-                                    <input id="movement-description" type="text" maxlength="160" required>
-                                </div>
-
-                                <div class="form-field">
-                                    <label for="movement-reference">Referencia</label>
-                                    <input id="movement-reference" type="text" maxlength="120">
-                                </div>
-
-                                <div class="form-field full-width">
-                                    <label for="movement-notes">Notas</label>
-                                    <textarea id="movement-notes" maxlength="500"></textarea>
-                                </div>
-                            </div>
-
-                            <div class="form-actions" style="margin-top:14px">
-                                <button class="btn btn-primary" type="submit">Registrar movimiento</button>
-                            </div>
-                        </form>
-                    </section>
-
-                    <section class="panel">
-                        <h3>Movimientos registrados</h3>
-                        <div id="cash-movement-list" class="list-stack"></div>
                     </section>
                 </section>
 
                 <section data-view-panel="machines" class="page-panel" hidden>
                     <div class="page-heading">
                         <div>
-                            <h2>Máquinas externas</h2>
-                            <p>Registra máquinas de conteo, detección y clasificación de efectivo.</p>
+                            <h2>Máquinas de conteo</h2>
+                            <p>Registra equipos y consulta las capacidades de conexión disponibles.</p>
                         </div>
-                    </div>
-
-                    <div class="status-note">
-                        Registrar una máquina no confirma su compatibilidad. Las conexiones reales requieren un protocolo documentado y un controlador compatible.
-                        <div id="machine-connection-capabilities" style="margin-top:8px"></div>
                     </div>
 
                     <section class="panel">
@@ -971,67 +649,72 @@
                         <form data-app-form="register-machine">
                             <div class="form-grid">
                                 <div class="form-field">
-                                    <label for="machine-name">Nombre</label>
-                                    <input id="machine-name" type="text" maxlength="120" required>
+                                    <label for="machine-name">Nombre del equipo</label>
+                                    <input id="machine-name" name="name" type="text" maxlength="120" required>
                                 </div>
 
                                 <div class="form-field">
                                     <label for="machine-type">Tipo</label>
-                                    <select id="machine-type" required>
-                                        <option value="counter">Contadora de billetes</option>
-                                        <option value="detector">Detector de billetes falsos</option>
+                                    <select id="machine-type" name="type">
+                                        <option value="counter">Contadora</option>
+                                        <option value="detector">Detector</option>
                                         <option value="sorter">Clasificadora</option>
                                         <option value="other">Otra</option>
                                     </select>
                                 </div>
 
                                 <div class="form-field">
-                                    <label for="machine-brand">Marca</label>
-                                    <input id="machine-brand" type="text" maxlength="100">
+                                    <label for="machine-brand">Fabricante</label>
+                                    <input id="machine-brand" name="brand" type="text" maxlength="100">
                                 </div>
 
                                 <div class="form-field">
                                     <label for="machine-model">Modelo</label>
-                                    <input id="machine-model" type="text" maxlength="100">
+                                    <input id="machine-model" name="model" type="text" maxlength="100">
                                 </div>
 
                                 <div class="form-field">
                                     <label for="machine-serial">Número de serie</label>
-                                    <input id="machine-serial" type="text" maxlength="120">
+                                    <input id="machine-serial" name="serial" type="text" maxlength="120">
                                 </div>
 
                                 <div class="form-field">
-                                    <label for="machine-image">Ruta o URL de imagen</label>
-                                    <input id="machine-image" type="text" maxlength="500" placeholder="Ruta local o URL https">
+                                    <label for="machine-image">Imagen del equipo</label>
+                                    <input id="machine-image" name="image" type="file" accept="image/*">
                                 </div>
 
                                 <div class="form-field">
                                     <label for="machine-connection-type">Conexión</label>
-                                    <select id="machine-connection-type">
+                                    <select id="machine-connection-type" name="connectionType">
                                         <option value="none">Sin conexión</option>
+                                        <option value="bluetooth">Bluetooth</option>
+                                        <option value="wifi">Wi-Fi</option>
                                         <option value="usb">USB</option>
                                         <option value="serial">Puerto serie</option>
-                                        <option value="bluetooth">Bluetooth</option>
-                                        <option value="network">Red / Wi-Fi</option>
+                                        <option value="network">Red local</option>
                                         <option value="other">Otra</option>
-                                        <option value="unknown">Desconocida</option>
                                     </select>
                                 </div>
 
                                 <div class="form-field">
                                     <label for="machine-connection-details">Detalles de conexión</label>
-                                    <input id="machine-connection-details" type="text" maxlength="500" placeholder="Dirección, servicio o interfaz documentada">
+                                    <input id="machine-connection-details" name="connectionDetails" type="text" maxlength="300">
                                 </div>
 
-                                <div class="form-field full-width">
+                                <div class="form-field">
                                     <label for="machine-protocol">Protocolo documentado</label>
-                                    <input id="machine-protocol" type="text" maxlength="200" placeholder="Fabricante, versión y protocolo">
+                                    <input id="machine-protocol" name="protocol" type="text" maxlength="160" placeholder="Ej.: protocolo del fabricante">
                                 </div>
+                            </div>
 
-                                <div class="form-field full-width">
-                                    <label for="machine-description">Observaciones</label>
-                                    <textarea id="machine-description" maxlength="1000"></textarea>
-                                </div>
+                            <div class="form-field" style="margin-top:14px">
+                                <label for="machine-description">Descripción</label>
+                                <textarea id="machine-description" name="description" rows="3" maxlength="1000"></textarea>
+                            </div>
+
+                            <div class="form-field" style="margin-top:14px">
+                                <label for="machine-connection-capabilities">Capacidades conocidas</label>
+                                <textarea id="machine-connection-capabilities" name="capabilities" rows="3" maxlength="1000" placeholder="Indica qué datos puede transmitir el equipo y cómo se comunica."></textarea>
                             </div>
 
                             <div class="form-actions" style="margin-top:14px">
@@ -1041,7 +724,7 @@
                     </section>
 
                     <section class="panel">
-                        <h3>Máquinas registradas</h3>
+                        <h3>Equipos registrados</h3>
                         <div id="machine-list" class="list-stack"></div>
                     </section>
                 </section>
@@ -1050,23 +733,23 @@
                     <div class="page-heading">
                         <div>
                             <h2>Denominaciones</h2>
-                            <p>Administra las denominaciones disponibles en el contador.</p>
+                            <p>Administra los valores disponibles para el conteo.</p>
                         </div>
                     </div>
 
                     <section class="panel">
-                        <h3>Añadir denominación personalizada</h3>
+                        <h3>Añadir denominación</h3>
 
                         <form data-app-form="add-denomination">
                             <div class="form-grid">
                                 <div class="form-field">
                                     <label for="new-denomination-value">Valor numérico</label>
-                                    <input id="new-denomination-value" type="number" min="1" max="1000000000" step="1" required>
+                                    <input id="new-denomination-value" name="value" type="number" min="0.01" step="0.01" required>
                                 </div>
 
                                 <div class="form-field">
                                     <label for="new-denomination-label">Etiqueta</label>
-                                    <input id="new-denomination-label" type="text" maxlength="80" placeholder="Ej.: 750 CUP" required>
+                                    <input id="new-denomination-label" name="label" type="text" maxlength="80" placeholder="Ej.: Billete de 200 CUP">
                                 </div>
                             </div>
 
@@ -1077,7 +760,7 @@
                     </section>
 
                     <section class="panel">
-                        <h3>Denominaciones existentes</h3>
+                        <h3>Denominaciones configuradas</h3>
                         <div id="denomination-settings-list" class="list-stack"></div>
                     </section>
                 </section>
@@ -1086,71 +769,52 @@
                     <div class="page-heading">
                         <div>
                             <h2>Configuración</h2>
-                            <p>Personaliza las preferencias de la aplicación.</p>
+                            <p>Personaliza el comportamiento de la aplicación.</p>
                         </div>
                     </div>
 
                     <section class="panel">
+                        <h3>Preferencias</h3>
+
                         <form data-app-form="save-settings">
                             <div class="form-grid">
                                 <div class="form-field">
                                     <label for="setting-theme">Tema</label>
-                                    <select id="setting-theme">
-                                        <option value="system">Sistema</option>
+                                    <select id="setting-theme" name="theme">
                                         <option value="light">Claro</option>
                                         <option value="dark">Oscuro</option>
+                                        <option value="system">Sistema</option>
                                     </select>
                                 </div>
 
                                 <div class="form-field">
                                     <label for="setting-language">Idioma</label>
-                                    <select id="setting-language">
+                                    <select id="setting-language" name="language">
                                         <option value="es">Español</option>
                                     </select>
                                 </div>
-
-                                <div class="form-field full-width">
-                                    <label>
-                                        <input id="setting-auto-save" type="checkbox" checked>
-                                        Guardar automáticamente el conteo actual
-                                    </label>
-                                </div>
-
-                                <div class="form-field full-width">
-                                    <label>
-                                        <input id="setting-confirm-delete" type="checkbox" checked>
-                                        Pedir confirmación antes de eliminar
-                                    </label>
-                                </div>
-
-                                <div class="form-field full-width">
-                                    <label>
-                                        <input id="setting-sound" type="checkbox">
-                                        Activar sonidos
-                                    </label>
-                                </div>
-
-                                <div class="form-field full-width">
-                                    <label>
-                                        <input id="setting-haptic" type="checkbox" checked>
-                                        Permitir respuesta háptica cuando sea compatible
-                                    </label>
-                                </div>
                             </div>
 
-                            <div class="form-actions" style="margin-top:16px">
+                            <div class="form-field" style="margin-top:14px">
+                                <label><input id="setting-auto-save" name="autoSave" type="checkbox"> Guardado automático</label>
+                            </div>
+
+                            <div class="form-field">
+                                <label><input id="setting-confirm-delete" name="confirmBeforeDelete" type="checkbox"> Confirmar antes de eliminar</label>
+                            </div>
+
+                            <div class="form-field">
+                                <label><input id="setting-sound" name="sound" type="checkbox"> Sonidos</label>
+                            </div>
+
+                            <div class="form-field">
+                                <label><input id="setting-haptic" name="haptic" type="checkbox"> Vibración (si el dispositivo lo permite)</label>
+                            </div>
+
+                            <div class="form-actions" style="margin-top:14px">
                                 <button class="btn btn-primary" type="submit">Guardar configuración</button>
-                                <button class="btn btn-secondary" type="button" data-action="theme-light">Tema claro</button>
-                                <button class="btn btn-secondary" type="button" data-action="theme-dark">Tema oscuro</button>
-                                <button class="btn btn-secondary" type="button" data-action="theme-system">Tema del sistema</button>
                             </div>
                         </form>
-                    </section>
-
-                    <section class="panel">
-                        <h3>Estado de la aplicación</h3>
-                        <p>Los datos se almacenan localmente en este navegador.</p>
-                        <p class="text-muted text-small">La sincronización en la nube no está habilitada.</p>
                     </section>
                 </section>
 
@@ -1158,104 +822,55 @@
                     <div class="page-heading">
                         <div>
                             <h2>Copias de seguridad</h2>
-                            <p>Exporta tus datos y restaura una copia cuando sea necesario.</p>
+                            <p>Exporta los datos o restaura una copia anterior.</p>
                         </div>
                     </div>
 
                     <section class="panel">
-                        <h3>Crear respaldo</h3>
-                        <p>Guarda una copia de los datos locales para protegerlos ante pérdidas del almacenamiento.</p>
+                        <h3>Exportar datos</h3>
+                        <p>Descarga una copia de seguridad de la información almacenada en esta aplicación.</p>
 
                         <div class="form-actions">
                             <button class="btn btn-primary" type="button" data-action="export-backup">Descargar copia de seguridad</button>
-                            <button class="btn btn-secondary" type="button" data-action="show-backup-preview">Ver resumen del respaldo</button>
                         </div>
-
-                        <pre id="backup-preview" class="code-preview" style="margin-top:14px"></pre>
                     </section>
 
-                    <section class="panel danger-zone">
-                        <h3>Restaurar respaldo</h3>
-                        <p>Importar puede reemplazar información existente. Crea primero una copia de seguridad de los datos actuales.</p>
+                    <section class="panel">
+                        <h3>Restaurar datos</h3>
 
                         <div class="form-field">
-                            <label for="backup-file">Archivo de respaldo</label>
+                            <label for="backup-file">Archivo de copia de seguridad</label>
                             <input id="backup-file" type="file" accept=".json,application/json">
                         </div>
 
                         <div class="form-actions" style="margin-top:14px">
-                            <button class="btn btn-primary" type="button" data-action="import-backup">Importar y restaurar</button>
+                            <button class="btn btn-secondary" type="button" data-action="preview-backup">Revisar archivo</button>
+                            <button class="btn btn-primary" type="button" data-action="restore-backup">Restaurar copia</button>
                         </div>
+
+                        <pre id="backup-preview" class="code-preview" style="margin-top:14px" aria-live="polite">No se ha seleccionado ningún archivo.</pre>
                     </section>
                 </section>
 
                 <section data-view-panel="about" class="page-panel" hidden>
                     <div class="page-heading">
                         <div>
-                            <h2>Acerca de Contador CUP</h2>
-                            <p>Información sobre la aplicación.</p>
+                            <h2>Acerca de</h2>
+                            <p>Información de la aplicación.</p>
                         </div>
                     </div>
 
                     <section class="panel">
-                        <div class="app-brand">
-                            <img src="./icon.svg" alt="Icono de Contador CUP" width="64" height="64">
-                            <div>
-                                <h3>Contador de Efectivo CUP</h3>
-                                <p class="text-muted">Desarrollado por Nova Apps</p>
-                            </div>
-                        </div>
-
-                        <p>Herramienta para contar efectivo, guardar registros y consultar estadísticas de importes en pesos cubanos.</p>
-
-                        <h3>Privacidad</h3>
-                        <p>Los registros se guardan localmente en el navegador. Exporta respaldos con regularidad y protégelos si contienen información privada.</p>
-
-                        <h3>Limitaciones</h3>
-                        <p>La conexión con máquinas externas requiere controladores y protocolos compatibles. Registrar un dispositivo no implica que pueda conectarse o transmitir datos.</p>
-
-                        <button class="btn btn-primary" type="button" data-action="open-nova-home">Abrir página principal de Nova Apps</button>
+                        <h3>Contador de efectivo CUP</h3>
+                        <p>Aplicación de Nova Apps para registrar, calcular y administrar conteos de efectivo en CUP.</p>
                     </section>
                 </section>
 
                 <section data-view-panel="nova-apps" class="page-panel" hidden>
                     <div class="page-heading">
                         <div>
-                            <h2>Otras aplicaciones de Nova</h2>
-                            <p>Accede al portal principal de Nova Apps.</p>
+                            <h2>Otras aplicaciones</h2>
+                            <p>Explora las aplicaciones de Nova Apps.</p>
                         </div>
                     </div>
-
-                    <section class="panel">
-                        <div class="app-brand">
-                            <img src="./icon.svg" alt="" width="64" height="64">
-                            <div>
-                                <h3>Contador de Efectivo CUP</h3>
-                                <p class="text-muted">Aplicación actual</p>
-                            </div>
-                        </div>
-
-                        <p>Consulta las demás aplicaciones disponibles en el portal oficial de Nova Apps.</p>
-
-                        <button class="btn btn-primary" type="button" data-action="open-nova-home">Abrir Nova Apps</button>
-                    </section>
-                </section>
-
-                <footer class="app-footer">
-                    <p>Contador de Efectivo CUP · Nova Apps</p>
-                    <p>
-                        <a href="https://cumba35.github.io/Nova-APPS/" target="_blank" rel="noopener noreferrer">
-                            Página principal de Nova Apps
-                        </a>
-                    </p>
-                    <p>Los resultados dependen de los datos introducidos y guardados en la aplicación.</p>
-                </footer>
-            </main>
-        </div>
-
-        <div id="toast-container" class="toast-container" aria-live="polite" hidden></div>
-    </div>
-
-    <script type="module" src="./js/app.js"></script>
-</body>
-</html>
+``
