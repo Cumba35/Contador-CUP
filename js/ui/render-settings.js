@@ -1,21 +1,14 @@
 import { getState } from "../state.js";
-
-import {
-    loadDenominationsIntoState
-} from "../settings/custom-denominations.js";
-
 import {
     setTheme,
     applySavedTheme
 } from "../settings/preferences.js";
-
 import { escapeHTML } from "../utils.js";
 import { el } from "./helpers.js";
 
 export function renderDenominationSettings() {
-    loadDenominationsIntoState();
-
     const container = el("denomination-settings-list");
+
     if (!container) return;
 
     const denominations = getState().denominations
@@ -46,14 +39,20 @@ export function renderDenominationSettings() {
                     ${item.enabled ? "Desactivar" : "Activar"}
                 </button>
 
-                <button
-                    class="btn btn-danger btn-sm"
-                    type="button"
-                    data-action="delete-denomination"
-                    data-id="${escapeHTML(item.id)}"
-                >
-                    Eliminar
-                </button>
+                ${
+                    item.custom
+                        ? `
+                            <button
+                                class="btn btn-danger btn-sm"
+                                type="button"
+                                data-action="delete-denomination"
+                                data-id="${escapeHTML(item.id)}"
+                            >
+                                Eliminar
+                            </button>
+                        `
+                        : ""
+                }
             </div>
         </article>
     `).join("");
