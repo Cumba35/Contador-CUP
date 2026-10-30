@@ -9,6 +9,7 @@ import { createCSV, downloadText } from "../utils.js";
 
 function makeFilename(prefix) {
     const now = new Date();
+
     const timestamp = [
         now.getFullYear(),
         String(now.getMonth() + 1).padStart(2, "0"),
