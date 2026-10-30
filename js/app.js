@@ -1,147 +1,155 @@
+// js/app.js
+
 import { APP_CONFIG } from "./config.js";
-import { getState, setState, markAppInitialized, setAppError } from "./state.js";
+import { getState, setState, markAppInitialized, setAppError, clearAppError } from "./state.js";
 import { readStorage, writeStorage, checkStorageAvailability } from "./storage.js";
-import { initializeNavigation, navigateTo, APP_VIEWS } from "./navigation.js";
+import { initializeNavigation, navigateTo, APP_VIEWS, openNovaAppsHome } from "./navigation.js";
 
 import {
-    loadCounterQuantities, getCounterSummary, setQuantity,
-    incrementQuantity, decrementQuantity, resetCounter
+    loadCounterQuantities,
+    getCounterSummary,
+    setQuantity,
+    incrementQuantity,
+    decrementQuantity,
+    resetCounter
 } from "./counter/calculator.js";
 
 import {
-    saveCurrentDraft, saveDraftAsNew, listDrafts, loadDraft, deleteDraft
+    saveCurrentDraft,
+    saveDraftAsNew,
+    listDrafts,
+    loadDraft,
+    deleteDraft
 } from "./counter/draft.js";
 
 import {
-    captureUndoState, undo, redo, canUndo, canRedo
+    captureUndoState,
+    undo,
+    redo,
+    canUndo,
+    canRedo,
+    clearUndoRedoHistory
 } from "./counter/undo-redo.js";
 
 import {
-    saveCurrentCount, listRecords, deleteRecord,
-    restoreRecordToCounter, loadHistoryIntoState
+    saveCurrentCount,
+    listRecords,
+    deleteRecord,
+    restoreRecordToCounter,
+    loadHistoryIntoState
 } from "./history/records.js";
 
-import { filterHistory, setHistoryFilters } from "./history/filters.js";
+import {
+    filterHistory,
+    setHistoryFilters,
+    resetHistoryFilters
+} from "./history/filters.js";
+
 import { compareRecords } from "./history/comparison.js";
-import { downloadReceiptHTML, downloadReceiptText } from "./history/receipts.js";
+import {
+    downloadReceiptHTML,
+    downloadReceiptText
+} from "./history/receipts.js";
 
 import {
-    getOverallStatistics, getDailyStatistics, getDenominationStatistics
+    getOverallStatistics,
+    getDailyStatistics,
+    getDenominationStatistics
 } from "./reports/statistics.js";
 
 import {
-    exportHistoryCSV, exportDailyStatisticsCSV, exportDenominationStatisticsCSV
+    exportHistoryCSV,
+    exportDailyStatisticsCSV,
+    exportDenominationStatisticsCSV
 } from "./reports/export-csv.js";
 
 import {
-    addCashMovement, deleteCashMovement, setOpeningBalance,
-    getCashSummary, listCashMovements, loadCashMovementsIntoState
+    addCashMovement,
+    deleteCashMovement,
+    setOpeningBalance,
+    loadCashMovementsIntoState
 } from "./cash/movements.js";
 
 import {
-    listMachines, registerMachine, removeMachine, setActiveMachine,
-    loadMachinesIntoState, MACHINE_TYPES
+    listMachines,
+    registerMachine,
+    removeMachine,
+    setActiveMachine,
+    loadMachinesIntoState,
+    MACHINE_TYPES
 } from "./machines/registry.js";
 
 import {
-    connectMachine, disconnectMachine,
-    getConnectionStatus, getConnectionCapabilities
+    connectMachine,
+    disconnectMachine,
+    getConnectionCapabilities
 } from "./machines/connections.js";
 
-import { downloadBackup, getBackupPreview } from "./backup/export.js";
-import { readBackupFile, restoreBackup } from "./backup/import.js";
+import {
+    downloadBackup,
+    getBackupPreview
+} from "./backup/export.js";
 
 import {
-    loadPreferencesIntoState, savePreferences,
-    setTheme, applySavedTheme
+    readBackupFile,
+    restoreBackup
+} from "./backup/import.js";
+
+import {
+    loadPreferencesIntoState,
+    savePreferences,
+    setTheme,
+    applySavedTheme
 } from "./settings/preferences.js";
 
 import {
-    loadDenominationsIntoState, createDenomination,
-    editDenomination, deleteDenomination
+    loadDenominationsIntoState,
+    createDenomination,
+    editDenomination,
+    deleteDenomination
 } from "./settings/custom-denominations.js";
 
 import {
-    formatCurrency, formatNumber, formatDateTime, escapeHTML
+    formatCurrency,
+    formatNumber,
+    escapeHTML
 } from "./utils.js";
 
-const $ = (selector, parent = document) => parent.querySelector(selector);
-const $$ = (selector, parent = document) => [...parent.querySelectorAll(selector)];
-const el = id => document.getElementById(id);
-const value = (id, fallback = "") => el(id)?.value ?? fallback;
-const checked = id => Boolean(el(id)?.checked);
+import {
+    el,
+    value,
+    checked,
+    text,
+    notify,
+    safelyAsync,
+    confirmAction
+} from "./ui/helpers.js";
 
-let root;
+import { initializeUIEvents } from "./ui/events.js";
+
+import { renderCounter } from "./ui/render-counter.js";
+import {
+    renderHistory,
+    renderDrafts,
+    renderComparisonOptions,
+    renderComparisonResult
+} from "./ui/render-history.js";
+import { renderReports } from "./ui/render-reports.js";
+import { renderCash } from "./ui/render-cash.js";
+import { renderMachines } from "./ui/render-machines.js";
+import { renderDenominationSettings } from "./ui/render-settings.js";
+
 let initialized = false;
-let toastTimer;
-
-function text(id, content) {
-    if (el(id)) {
-        el(id).textContent = String(content ?? "");
-    }
-}
-
-function notify(message, type = "info") {
-    const container = el("toast-container");
-
-    if (!container) {
-        console.info(`[Contador-CUP] ${message}`);
-        return;
-    }
-
-    container.replaceChildren();
-
-    const toast = document.createElement("div");
-    toast.className = `toast toast-${type}`;
-    toast.setAttribute("role", type === "error" ? "alert" : "status");
-    toast.textContent = String(message);
-
-    container.append(toast);
-    container.hidden = false;
-
-    clearTimeout(toastTimer);
-
-    toastTimer = setTimeout(() => {
-        toast.remove();
-        container.hidden = !container.children.length;
-    }, 3500);
-}
-
-function safely(callback) {
-    try {
-        return callback();
-    } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        setAppError(message);
-        notify(message, "error");
-        return null;
-    }
-}
-
-async function safelyAsync(callback) {
-    try {
-        return await callback();
-    } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        setAppError(message);
-        notify(message, "error");
-        return null;
-    }
-}
-
-function confirmAction(message) {
-    return !getState().settings.confirmBeforeDelete ||
-        globalThis.confirm(message);
-}
+let removeUIEvents = null;
 
 function persistCurrentCount() {
-    const state = getState();
+    const counter = getState().counter;
 
     writeStorage("currentCount", {
-        quantities: state.counter.quantities,
-        total: state.counter.total,
-        draftId: state.counter.draftId,
-        draftName: state.counter.draftName,
+        quantities: counter.quantities,
+        total: counter.total,
+        draftId: counter.draftId,
+        draftName: counter.draftName,
         savedAt: new Date().toISOString()
     });
 }
@@ -173,325 +181,329 @@ function persistOpeningBalance(amount) {
     });
 }
 
+function renderAll() {
+    renderCounter();
+    renderDrafts();
+    renderHistory();
+    renderComparisonOptions();
+    renderReports();
+    renderCash();
+    renderMachines();
+    renderDenominationSettings();
+    updateNavigation();
+    updateUndoButtons();
+}
+
 function updateUndoButtons() {
-    if (el("undo-button")) {
-        el("undo-button").disabled = !canUndo();
+    const undoButton = el("undo-button");
+    const redoButton = el("redo-button");
+
+    if (undoButton) {
+        undoButton.disabled = !canUndo();
     }
 
-    if (el("redo-button")) {
-        el("redo-button").disabled = !canRedo();
+    if (redoButton) {
+        redoButton.disabled = !canRedo();
     }
 }
 
-function renderCounter() {
+function updateNavigation() {
+    const currentView = getState().app.currentView;
+
+    document.querySelectorAll("[data-view-panel]").forEach(panel => {
+        panel.hidden = panel.dataset.viewPanel !== currentView;
+    });
+
+    document.querySelectorAll('[data-action="navigate"]').forEach(button => {
+        const active = button.dataset.view === currentView;
+
+        button.classList.toggle("is-active", active);
+
+        if (active) {
+            button.setAttribute("aria-current", "page");
+        } else {
+            button.removeAttribute("aria-current");
+        }
+    });
+
+    const activePanel = document.querySelector(
+        `[data-view-panel="${CSS.escape(currentView)}"]`
+    );
+
+    const heading = activePanel?.querySelector("h2");
+
+    if (heading && el("page-title")) {
+        el("page-title").textContent = heading.textContent;
+    }
+}
+
+function navigate(view) {
+    navigateTo(view);
+    updateNavigation();
+
+    if (view === APP_VIEWS.COUNTER) {
+        renderCounter();
+    } else if (view === APP_VIEWS.DRAFTS) {
+        renderDrafts();
+    } else if (view === APP_VIEWS.HISTORY) {
+        renderHistory();
+    } else if (view === APP_VIEWS.COMPARISON) {
+        renderComparisonOptions();
+    } else if (view === APP_VIEWS.REPORTS) {
+        renderReports();
+    } else if (view === APP_VIEWS.CASH) {
+        renderCash();
+    } else if (view === APP_VIEWS.MACHINES) {
+        renderMachines();
+    } else if (view === APP_VIEWS.DENOMINATIONS) {
+        renderDenominationSettings();
+    }
+}
+
+function updateHistoryFilters() {
+    setHistoryFilters({
+        search: value("history-search"),
+        startDate: value("history-start-date"),
+        endDate: value("history-end-date"),
+        minAmount: value("history-min-amount"),
+        maxAmount: value("history-max-amount")
+    });
+
+    renderHistory();
+}
+
+function updateQuantityInput(input) {
+    const id = input.dataset.id;
+
+    if (!id) {
+        return;
+    }
+
+    const quantity = Number(input.value);
+
+    if (
+        !Number.isSafeInteger(quantity) ||
+        quantity < 0 ||
+        quantity > APP_CONFIG.limits.denominationQuantity
+    ) {
+        input.setCustomValidity("Introduce una cantidad entera válida.");
+        input.reportValidity();
+        return;
+    }
+
+    input.setCustomValidity("");
+
+    captureUndoState();
+    setQuantity(id, quantity);
+    persistCurrentCount();
+
+    const denomination = getState().denominations.find(
+        item => item.id === id
+    );
+
+    if (denomination) {
+        text(
+            `subtotal-${id}`,
+            formatCurrency(denomination.value * quantity)
+        );
+    }
+
     const summary = getCounterSummary();
 
     text("counter-total", formatCurrency(summary.total));
     text("counter-bills", formatNumber(summary.totalBills, 0));
 
-    text(
-        "counter-denomination-count",
-        formatNumber(
-            getState().denominations.filter(item => item.enabled).length,
-            0
-        )
-    );
-
-    text(
-        "current-draft-name",
-        getState().counter.draftName || "Conteo sin guardar"
-    );
-
-    const container = el("denomination-list");
-
-    if (container) {
-        container.innerHTML = getState().denominations
-            .filter(item => item.enabled)
-            .sort((a, b) => b.value - a.value)
-            .map(item => {
-                const quantity = getState().counter.quantities[item.id] ?? 0;
-                const id = escapeHTML(item.id);
-                const label = escapeHTML(item.label);
-
-                return `
-                    <article class="denomination-card">
-                        <div class="denomination-value">${label}</div>
-
-                        <div class="denomination-controls">
-                            <button
-                                class="btn-icon"
-                                type="button"
-                                data-action="decrement"
-                                data-id="${id}"
-                                aria-label="Restar ${label}"
-                            >−</button>
-
-                            <input
-                                id="quantity-${id}"
-                                type="number"
-                                min="0"
-                                max="${APP_CONFIG.limits.denominationQuantity}"
-                                step="1"
-                                inputmode="numeric"
-                                value="${quantity}"
-                                data-action="quantity"
-                                data-id="${id}"
-                                aria-label="Cantidad de ${label}"
-                            >
-
-                            <button
-                                class="btn-icon"
-                                type="button"
-                                data-action="increment"
-                                data-id="${id}"
-                                aria-label="Añadir ${label}"
-                            >+</button>
-                        </div>
-
-                        <div class="denomination-subtotal">
-                            Subtotal:
-                            <strong id="subtotal-${id}">
-                                ${formatCurrency(item.value * quantity)}
-                            </strong>
-                        </div>
-                    </article>`;
-            })
-            .join("");
-    }
-
     updateUndoButtons();
 }
 
-function renderHistory() {
-    const container = el("history-list");
-    if (!container) return;
+function handleInput(event) {
+    const target = event.target;
 
-    const records = filterHistory(listRecords());
+    if (target.matches('[data-action="quantity"]')) {
+        updateQuantityInput(target);
+        return;
+    }
 
-    container.innerHTML = records.length
-        ? records.map(record => `
-            <article class="list-item">
-                <div class="list-item-content">
-                    <strong>
-                        ${escapeHTML(record.name || "Conteo sin nombre")}
-                    </strong>
+    const historyFields = [
+        "history-search",
+        "history-start-date",
+        "history-end-date",
+        "history-min-amount",
+        "history-max-amount"
+    ];
 
-                    <div class="text-muted text-small">
-                        ${escapeHTML(formatDateTime(record.createdAt))}
-                    </div>
-
-                    <div>${escapeHTML(formatCurrency(record.total))}</div>
-
-                    <div class="text-small">
-                        ${formatNumber(record.totalBills, 0)} billetes
-                    </div>
-                </div>
-
-                <div class="list-item-actions">
-                    <button class="btn btn-secondary btn-sm"
-                        data-action="restore-record"
-                        data-id="${escapeHTML(record.id)}">
-                        Cargar
-                    </button>
-
-                    <button class="btn btn-secondary btn-sm"
-                        data-action="receipt-record"
-                        data-id="${escapeHTML(record.id)}">
-                        Recibo HTML
-                    </button>
-
-                    <button class="btn btn-secondary btn-sm"
-                        data-action="receipt-text"
-                        data-id="${escapeHTML(record.id)}">
-                        Recibo TXT
-                    </button>
-
-                    <button class="btn btn-danger btn-sm"
-                        data-action="delete-record"
-                        data-id="${escapeHTML(record.id)}">
-                        Eliminar
-                    </button>
-                </div>
-            </article>
-        `).join("")
-        : `
-            <div class="empty-state">
-                <h3 class="empty-state-title">No hay conteos</h3>
-                <p>No existen registros que coincidan con los filtros.</p>
-            </div>
-        `;
-
-    renderComparisonOptions();
+    if (historyFields.includes(target.id)) {
+        safelyAsync(async () => updateHistoryFilters());
+    }
 }
 
-function renderDrafts() {
-    const container = el("draft-list");
-    if (!container) return;
+function handleChange(event) {
+    const target = event.target;
 
-    const drafts = listDrafts();
+    if (target.matches('[data-action="quantity"]')) {
+        updateQuantityInput(target);
+    }
 
-    container.innerHTML = drafts.length
-        ? drafts.map(draft => `
-            <article class="list-item">
-                <div class="list-item-content">
-                    <strong>${escapeHTML(draft.name)}</strong>
-
-                    <div class="text-muted text-small">
-                        ${escapeHTML(formatDateTime(draft.updatedAt))}
-                    </div>
-
-                    <div>${escapeHTML(formatCurrency(draft.total))}</div>
-                </div>
-
-                <div class="list-item-actions">
-                    <button class="btn btn-secondary btn-sm"
-                        data-action="load-draft"
-                        data-id="${escapeHTML(draft.id)}">
-                        Abrir
-                    </button>
-
-                    <button class="btn btn-danger btn-sm"
-                        data-action="delete-draft"
-                        data-id="${escapeHTML(draft.id)}">
-                        Eliminar
-                    </button>
-                </div>
-            </article>
-        `).join("")
-        : `
-            <div class="empty-state">
-                <h3 class="empty-state-title">No hay borradores</h3>
-                <p>Guarda un conteo para continuar más tarde.</p>
-            </div>
-        `;
+    if (
+        target.id === "report-start-date" ||
+        target.id === "report-end-date"
+    ) {
+        renderReports();
+    }
 }
 
-function renderComparisonOptions() {
-    const records = listRecords();
+function getFormData(form) {
+    const formName = form.dataset.appForm;
 
-    for (const id of ["comparison-record-a", "comparison-record-b"]) {
-        const select = el(id);
-        if (!select) continue;
+    switch (formName) {
+        case "save-count":
+            return {
+                name: value("count-name"),
+                notes: value("count-notes")
+            };
 
-        const previous = select.value;
+        case "save-draft":
+            return {
+                name: value("draft-name")
+            };
 
-        select.innerHTML =
-            '<option value="">Selecciona un conteo</option>' +
-            records.map(record => `
-                <option value="${escapeHTML(record.id)}">
-                    ${escapeHTML(record.name || "Conteo sin nombre")} —
-                    ${escapeHTML(formatDateTime(record.createdAt))} —
-                    ${escapeHTML(formatCurrency(record.total))}
-                </option>
-            `).join("");
+        case "add-cash-movement":
+            return {
+                type: value("movement-type"),
+                amount: value("movement-amount"),
+                description: value("movement-description"),
+                reference: value("movement-reference"),
+                notes: value("movement-notes")
+            };
 
-        if (records.some(record => record.id === previous)) {
-            select.value = previous;
+        case "register-machine": {
+            const typeMap = {
+                counter: MACHINE_TYPES.BILL_COUNTER,
+                detector: MACHINE_TYPES.COUNTERFEIT_DETECTOR,
+                sorter: MACHINE_TYPES.BILL_SORTER,
+                other: MACHINE_TYPES.OTHER
+            };
+
+            return {
+                name: value("machine-name"),
+                type: typeMap[value("machine-type")] ?? value("machine-type"),
+                brand: value("machine-brand"),
+                model: value("machine-model"),
+                serialNumber: value("machine-serial"),
+                image: value("machine-image"),
+                connectionType: value("machine-connection-type", "unknown"),
+                connectionDetails: value("machine-connection-details"),
+                protocol: value("machine-protocol"),
+                description: value("machine-description")
+            };
         }
+
+        case "add-denomination":
+            return {
+                value: value("new-denomination-value"),
+                label: value("new-denomination-label")
+            };
+
+        case "save-settings":
+            return {
+                theme: value("setting-theme", "system"),
+                language: value("setting-language", "es"),
+                autoSave: checked("setting-auto-save"),
+                confirmBeforeDelete: checked("setting-confirm-delete"),
+                soundEnabled: checked("setting-sound"),
+                hapticEnabled: checked("setting-haptic")
+            };
+
+        default:
+            return null;
     }
 }
 
-function renderComparisonResult(result) {
-    const container = el("comparison-result");
-    if (!container) return;
+async function handleFormSubmit(event) {
+    const form = event.target.closest("form[data-app-form]");
 
-    const rows = result.denominations.map(item => `
-        <tr>
-            <td>${escapeHTML(item.label)}</td>
-            <td>${formatNumber(item.firstQuantity, 0)}</td>
-            <td>${formatNumber(item.secondQuantity, 0)}</td>
-            <td>${formatNumber(item.quantityDifference, 0)}</td>
-            <td>${escapeHTML(formatCurrency(item.firstSubtotal))}</td>
-            <td>${escapeHTML(formatCurrency(item.secondSubtotal))}</td>
-            <td>${escapeHTML(formatCurrency(item.subtotalDifference))}</td>
-        </tr>
-    `).join("");
+    if (!form) {
+        return;
+    }
 
-    container.innerHTML = `
-        <div class="stat-grid">
-            <article class="stat-card">
-                <span>${escapeHTML(result.first.name)}</span>
-                <strong>${escapeHTML(formatCurrency(result.first.total))}</strong>
-            </article>
+    event.preventDefault();
 
-            <article class="stat-card">
-                <span>${escapeHTML(result.second.name)}</span>
-                <strong>${escapeHTML(formatCurrency(result.second.total))}</strong>
-            </article>
+    await safelyAsync(async () => {
+        const formName = form.dataset.appForm;
+        const data = getFormData(form);
 
-            <article class="stat-card">
-                <span>Diferencia total</span>
-                <strong>
-                    ${escapeHTML(formatCurrency(result.differences.total.value))}
-                </strong>
-            </article>
-        </div>
+        if (!data) {
+            throw new Error("No se reconoce este formulario.");
+        }
 
-        <div class="table-wrapper">
-            <table>
-                <thead>
-                    <tr>
-                        <th>Denominación</th>
-                        <th>Primero</th>
-                        <th>Segundo</th>
-                        <th>Dif. cantidad</th>
-                        <th>Subtotal 1</th>
-                        <th>Subtotal 2</th>
-                        <th>Dif. subtotal</th>
-                    </tr>
-                </thead>
+        switch (formName) {
+            case "save-count": {
+                const record = saveCurrentCount(data);
 
-                <tbody>
-                    ${rows || '<tr><td colspan="7">Sin datos para comparar.</td></tr>'}
-                </tbody>
-            </table>
-        </div>
-    `;
+                renderHistory();
+                renderReports();
+
+                notify(
+                    `Conteo guardado: ${formatCurrency(record.total)}.`,
+                    "success"
+                );
+
+                form.reset();
+                break;
+            }
+
+            case "save-draft": {
+                saveCurrentDraft(data.name);
+
+                persistCurrentCount();
+                renderDrafts();
+                renderCounter();
+
+                notify("Borrador guardado.", "success");
+                break;
+            }
+
+            case "add-cash-movement":
+                addCashMovement(data);
+                renderCash();
+                form.reset();
+                notify("Movimiento registrado.", "success");
+                break;
+
+            case "register-machine":
+                registerMachine(data);
+                persistMachineRegistry();
+                renderMachines();
+                form.reset();
+                notify("Máquina registrada.", "success");
+                break;
+
+            case "add-denomination":
+                createDenomination(data);
+                renderDenominationSettings();
+                renderCounter();
+                form.reset();
+                notify("Denominación añadida.", "success");
+                break;
+
+            case "save-settings":
+                savePreferences(data);
+                applySavedTheme();
+                notify("Configuración guardada.", "success");
+                break;
+
+            default:
+                throw new Error("Acción de formulario desconocida.");
+        }
+    });
 }
 
-function renderReports() {
-    const stats = getOverallStatistics();
-
-    text("report-count", formatNumber(stats.count, 0));
-    text("report-total", formatCurrency(stats.totalAmount));
-    text("report-bills", formatNumber(stats.totalBills, 0));
-    text("report-average", formatCurrency(stats.averageAmount));
-
-    const start = el("report-start-date")?.value ?? "";
-    const end = el("report-end-date")?.value ?? "";
-
-    const daily = el("daily-report-list");
-
-    if (daily) {
-        const rows = getDailyStatistics(start, end);
-
-        daily.innerHTML = rows.length
-            ? rows.map(day => `
-                <tr>
-                    <td>${escapeHTML(day.date)}</td>
-                    <td>${formatNumber(day.count, 0)}</td>
-                    <td>${escapeHTML(formatCurrency(day.totalAmount))}</td>
-                    <td>${formatNumber(day.totalBills, 0)}</td>
-                </tr>
-            `).join("")
-            : '<tr><td colspan="4">No hay datos disponibles.</td></tr>';
-    }
-
-    const denominations = el("denomination-report-list");
-
-    if (denominations) {
-        denominations.innerHTML = getDenominationStatistics(start, end)
-            .map(item => `
-                <tr>
-                    <td>${escapeHTML(item.label)}</td>
-                    <td>${formatNumber(item.quantity, 0)}</td>
-                    <td>${escapeHTML(formatCurrency(item.subtotal))}</td>
-                </tr>
-            `).join("");
-    }
-}async function handleClick(event) {
+async function handleClick(event) {
     const button = event.target.closest("[data-action]");
-    if (!button || button.disabled) return;
+
+    if (!button || button.disabled) {
+        return;
+    }
 
     const action = button.dataset.action;
     const id = button.dataset.id;
@@ -527,38 +539,33 @@ function renderReports() {
                 break;
 
             case "undo":
-                if (undo()) {
+                if (undo().success) {
                     persistCurrentCount();
                     renderCounter();
                 }
                 break;
 
             case "redo":
-                if (redo()) {
+                if (redo().success) {
                     persistCurrentCount();
                     renderCounter();
                 }
                 break;
 
-            case "save-draft":
-                saveCurrentDraft();
-                renderDrafts();
-                notify("Borrador guardado.", "success");
-                break;
-
             case "save-draft-as-new":
-                saveDraftAsNew();
+                saveDraftAsNew(value("draft-name"));
+                persistCurrentCount();
                 renderDrafts();
+                renderCounter();
                 notify("Nuevo borrador guardado.", "success");
                 break;
 
             case "load-draft":
-                if (loadDraft(id)) {
-                    persistCurrentCount();
-                    renderCounter();
-                    navigate(APP_VIEWS.COUNTER);
-                    notify("Borrador cargado.", "success");
-                }
+                loadDraft(id);
+                persistCurrentCount();
+                renderCounter();
+                navigate(APP_VIEWS.COUNTER);
+                notify("Borrador cargado.", "success");
                 break;
 
             case "delete-draft":
@@ -570,7 +577,7 @@ function renderReports() {
                 break;
 
             case "restore-record":
-                restoreRecordToCounter(id);
+                loadCounterQuantities(restoreRecordToCounter(id));
                 persistCurrentCount();
                 renderCounter();
                 navigate(APP_VIEWS.COUNTER);
@@ -586,19 +593,13 @@ function renderReports() {
                 }
                 break;
 
-            case "receipt-record": {
-                const record = listRecords().find(item => item.id === id);
-                if (!record) throw new Error("No se encontró el registro.");
-                downloadReceiptHTML(record);
+            case "receipt-record":
+                downloadReceiptHTML(id);
                 break;
-            }
 
-            case "receipt-text": {
-                const record = listRecords().find(item => item.id === id);
-                if (!record) throw new Error("No se encontró el registro.");
-                downloadReceiptText(record);
+            case "receipt-text":
+                downloadReceiptText(id);
                 break;
-            }
 
             case "compare-records": {
                 const firstId = value("comparison-record-a");
@@ -608,12 +609,7 @@ function renderReports() {
                     throw new Error("Selecciona los dos conteos que deseas comparar.");
                 }
 
-                if (firstId === secondId) {
-                    throw new Error("Selecciona dos conteos diferentes.");
-                }
-
-                const result = compareRecords(firstId, secondId);
-                renderComparisonResult(result);
+                renderComparisonResult(compareRecords(firstId, secondId));
                 break;
             }
 
@@ -652,6 +648,7 @@ function renderReports() {
                 setOpeningBalance(amount);
                 persistOpeningBalance(amount);
                 renderCash();
+
                 notify("Saldo inicial actualizado.", "success");
                 break;
             }
@@ -665,6 +662,7 @@ function renderReports() {
             case "connect-machine": {
                 const result = await connectMachine(id);
                 renderMachines();
+
                 notify(
                     result.message,
                     result.success ? "success" : "warning"
@@ -751,11 +749,13 @@ function renderReports() {
 
                 const inspected = await readBackupFile(file);
 
-                const approved = globalThis.confirm(
+                const approved = confirmAction(
                     `Se importará el respaldo de ${inspected.preview.application}. ¿Quieres reemplazar los datos existentes?`
                 );
 
-                if (!approved) break;
+                if (!approved) {
+                    break;
+                }
 
                 restoreBackup(inspected.backup, {
                     overwrite: true
@@ -766,16 +766,15 @@ function renderReports() {
                     "success"
                 );
 
-                setTimeout(() => window.location.reload(), 800);
+                globalThis.setTimeout(() => {
+                    globalThis.location.reload();
+                }, 800);
+
                 break;
             }
 
             case "open-nova-home":
-                window.open(
-                    "https://cumba35.github.io/Nova-APPS/",
-                    "_blank",
-                    "noopener,noreferrer"
-                );
+                openNovaAppsHome();
                 break;
 
             default:
@@ -783,3 +782,144 @@ function renderReports() {
         }
     });
 }
+
+function loadOpeningBalance() {
+    const savedSettings = readStorage("settings", {});
+    const amount = Number(savedSettings?.openingBalance ?? 0);
+
+    if (Number.isSafeInteger(amount) && amount >= 0) {
+        setOpeningBalance(amount);
+    } else {
+        setOpeningBalance(0);
+    }
+
+    if (el("opening-balance-input")) {
+        el("opening-balance-input").value = String(
+            getState().cash.openingBalance
+        );
+    }
+}
+
+function loadSettingsIntoControls() {
+    const settings = getState().settings;
+
+    const controls = {
+        "setting-theme": settings.theme,
+        "setting-language": settings.language
+    };
+
+    for (const [id, setting] of Object.entries(controls)) {
+        if (el(id)) {
+            el(id).value = setting;
+        }
+    }
+
+    const checkboxes = {
+        "setting-auto-save": settings.autoSave,
+        "setting-confirm-delete": settings.confirmBeforeDelete,
+        "setting-sound": settings.soundEnabled,
+        "setting-haptic": settings.hapticEnabled
+    };
+
+    for (const [id, setting] of Object.entries(checkboxes)) {
+        if (el(id)) {
+            el(id).checked = Boolean(setting);
+        }
+    }
+}
+
+function showStorageWarning() {
+    if (!checkStorageAvailability()) {
+        notify(
+            "El almacenamiento local no está disponible. Los datos no podrán guardarse.",
+            "error"
+        );
+    }
+}
+
+function initializeApplication() {
+    if (initialized) {
+        return;
+    }
+
+    initialized = true;
+
+    try {
+        loadPreferencesIntoState();
+        loadDenominationsIntoState();
+        restoreCurrentCount();
+
+        loadHistoryIntoState();
+        loadCashMovementsIntoState();
+        loadMachinesIntoState();
+        loadOpeningBalance();
+
+        initializeNavigation();
+        applySavedTheme();
+        loadSettingsIntoControls();
+
+        const capabilities = getConnectionCapabilities();
+
+        text(
+            "machine-connection-capabilities",
+            capabilities.note
+        );
+
+        removeUIEvents = initializeUIEvents({
+            onClick: handleClick,
+            onInput: handleInput,
+            onChange: handleChange
+        });
+
+        document.addEventListener("submit", handleFormSubmit);
+
+        renderAll();
+
+        markAppInitialized();
+        clearAppError();
+
+        showStorageWarning();
+
+    } catch (error) {
+        initialized = false;
+
+        const message = error instanceof Error
+            ? error.message
+            : String(error);
+
+        setAppError(message);
+
+        const errorElement = el("app-error");
+
+        if (errorElement) {
+            errorElement.textContent = message;
+            errorElement.hidden = false;
+        }
+
+        notify(message, "error");
+
+        console.error("Error al iniciar Contador-CUP:", error);
+    }
+}
+
+function cleanupApplication() {
+    if (removeUIEvents) {
+        removeUIEvents();
+        removeUIEvents = null;
+    }
+
+    document.removeEventListener("submit", handleFormSubmit);
+    initialized = false;
+}
+
+if (document.readyState === "loading") {
+    document.addEventListener(
+        "DOMContentLoaded",
+        initializeApplication,
+        { once: true }
+    );
+} else {
+    initializeApplication();
+}
+
+globalThis.addEventListener?.("pagehide", cleanupApplication);
