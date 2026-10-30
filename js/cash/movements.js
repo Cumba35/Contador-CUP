@@ -1,276 +1,371 @@
+const STORAGE_KEY = "contadorCUP.pro.v1";
 
- // js/cash/movements.js
+const MAX_AMOUNT = 999999999999.99;
+const DECIMAL_PLACES = 2;
 
-import { getState, setState } from "../state.js";
-import { readStorage, writeStorage } from "../storage.js";
-import { generateId } from "../utils.js";
+function roundMoney(value) {
+    return Math.round((value + Number.EPSILON) * 100) / 100;
+}
 
-const STORAGE_KEY = "cashMovements";
-
-const MOVEMENT_TYPES = Object.freeze({
-    INCOME: "income",
-    EXPENSE: "expense",
-    OPENING: "opening",
-    ADJUSTMENT: "adjustment"
-});
-
-function validateAmount(value) {
+function normalizeAmount(value) {
     const amount = Number(value);
 
-    if (!Number.isFinite(amount) || amount <= 0) {
-        throw new Error("El importe debe ser un número positivo.");
+    if (!Number.isFinite(amount) || amount <= 0 || amount > MAX_AMOUNT) {
+        throw new Error("El importe debe ser mayor que cero y válido.");
     }
 
-    const cents = Math.round(amount * 100);
+    return roundMoney(amount);
+}
+
+function readState() {
+    try {
+        const saved = localStorage.getItem(STORAGE_KEY);
+
+        if (!saved) {
+            return {
+                movements: [],
+                opening: 0,
+                settings: {}
+            };
+        }
+
+        const parsed = JSON.parse(saved);
+
+        return {
+            movements: Array.isArray(parsed.movements)
+                ? parsed.movements
+                : [],
+            opening: Number(parsed.opening) || 0,
+            settings: parsed.settings && typeof parsed.settings === "object"
+                ? parsed.settings
+                : {}
+        };
+    } catch (error) {
+        console.error("Error leyendo los movimientos:", error);
+
+        return {
+            movements: [],
+            opening: 0,
+            settings: {}
+        };
+    }
+}
+
+function saveState(state) {
+    try {
+        localStorage.setItem(
+            STORAGE_KEY,
+            JSON.stringify(state)
+        );
+
+        window.dispatchEvent(
+            new CustomEvent("cash:updated", {
+                detail: {
+                    movements: state.movements.length,
+                    opening: state.opening
+                }
+            })
+        );
+
+        return true;
+    } catch (error) {
+        console.error("Error guardando los movimientos:", error);
+
+        throw new Error("No se pudieron guardar los movimientos.");
+    }
+}
+
+function generateMovementId() {
+    if (typeof crypto !== "undefined" && crypto.randomUUID) {
+        return crypto.randomUUID();
+    }
+
+    return (
+        Date.now().toString(36) +
+        Math.random().toString(36).slice(2)
+    );
+}
+
+function normalizeMovementType(type) {
+    const normalized = String(type || "").trim().toLowerCase();
+
+    if (normalized !== "in" && normalized !== "out") {
+        throw new Error("Tipo de movimiento no válido.");
+    }
+
+    return normalized;
+}
+
+function normalizeReason(reason) {
+    return String(reason || "").trim().slice(0, 500);
+}
+
+function validateMovementData(data) {
+    if (!data || typeof data !== "object") {
+        throw new Error("Los datos del movimiento no son válidos.");
+    }
+
+    return {
+        amount: normalizeAmount(data.amount),
+        type: normalizeMovementType(data.type),
+        reason: normalizeReason(data.reason)
+    };
+}
+
+/**
+ * Añade un movimiento de efectivo.
+ *
+ * data:
+ * {
+ *   amount: Number,
+ *   type: "in" | "out",
+ *   reason: String
+ * }
+ */
+export function addCashMovement(data) {
+    const validated = validateMovementData(data);
+    const state = readState();
+
+    const movement = {
+        id: generateMovementId(),
+        at: new Date().toISOString(),
+        amount: validated.amount,
+        type: validated.type,
+        reason: validated.reason
+    };
+
+    state.movements.push(movement);
+
+    saveState(state);
+
+    return movement;
+}
+
+/**
+ * Actualiza un movimiento existente.
+ */
+export function updateCashMovement(id, updates) {
+    if (!id || !updates || typeof updates !== "object") {
+        throw new Error("Datos de actualización no válidos.");
+    }
+
+    const state = readState();
+
+    const index = state.movements.findIndex(
+        movement => movement.id === id
+    );
+
+    if (index === -1) {
+        throw new Error("No se encontró el movimiento.");
+    }
+
+    const current = state.movements[index];
+
+    const updated = {
+        ...current,
+        amount: updates.amount !== undefined
+            ? normalizeAmount(updates.amount)
+            : current.amount,
+
+        type: updates.type !== undefined
+            ? normalizeMovementType(updates.type)
+            : current.type,
+
+        reason: updates.reason !== undefined
+            ? normalizeReason(updates.reason)
+            : current.reason
+    };
+
+    state.movements[index] = updated;
+
+    saveState(state);
+
+    return updated;
+}
+
+/**
+ * Elimina un movimiento.
+ */
+export function deleteCashMovement(id) {
+    if (!id) {
+        throw new Error("Identificador no válido.");
+    }
+
+    const state = readState();
+
+    const index = state.movements.findIndex(
+        movement => movement.id === id
+    );
+
+    if (index === -1) {
+        throw new Error("No se encontró el movimiento.");
+    }
+
+    const deleted = state.movements.splice(index, 1)[0];
+
+    saveState(state);
+
+    return deleted;
+}
+
+/**
+ * Establece el saldo inicial de caja.
+ */
+export function setOpeningBalance(amount) {
+    const value = Number(amount);
 
     if (
-        !Number.isSafeInteger(cents) ||
-        Math.abs(amount * 100 - cents) > 1e-7
+        !Number.isFinite(value) ||
+        value < 0 ||
+        value > MAX_AMOUNT
     ) {
-        throw new Error("El importe debe tener como máximo dos decimales.");
+        throw new Error("El saldo inicial no es válido.");
     }
 
-    return cents / 100;
+    const state = readState();
+
+    state.opening = roundMoney(value);
+
+    saveState(state);
+
+    return state.opening;
 }
 
-function toCents(value) {
-    const amount = Number(value ?? 0);
+/**
+ * Obtiene el saldo inicial.
+ */
+export function getOpeningBalance() {
+    return readState().opening;
+}
 
-    if (!Number.isFinite(amount)) {
-        return 0;
+/**
+ * Devuelve todos los movimientos.
+ */
+export function listCashMovements(options = {}) {
+    const state = readState();
+
+    let movements = [...state.movements];
+
+    if (options.type) {
+        const type = normalizeMovementType(options.type);
+
+        movements = movements.filter(
+            movement => movement.type === type
+        );
     }
 
-    const cents = Math.round(amount * 100);
-    return Number.isSafeInteger(cents) ? cents : 0;
-}
+    if (options.search) {
+        const search = String(options.search).toLowerCase();
 
-function fromCents(cents) {
-    return cents / 100;
-}
-
-function validateText(value, field, maximum = 200) {
-    const text = String(value ?? "").trim();
-
-    if (!text) {
-        throw new Error(`${field} es obligatorio.`);
+        movements = movements.filter(movement =>
+            String(movement.reason || "")
+                .toLowerCase()
+                .includes(search)
+        );
     }
 
-    if (text.length > maximum) {
-        throw new Error(`${field} no puede superar los ${maximum} caracteres.`);
+    movements.sort((a, b) =>
+        new Date(b.at).getTime() - new Date(a.at).getTime()
+    );
+
+    if (Number.isInteger(options.limit) && options.limit >= 0) {
+        movements = movements.slice(0, options.limit);
     }
-
-    return text;
-}
-
-function getMovements() {
-    const movements = readStorage(STORAGE_KEY, []);
-    return Array.isArray(movements) ? movements : [];
-}
-
-function saveMovements(movements) {
-    writeStorage(STORAGE_KEY, movements);
-    setState("cash.movements", movements);
-    recalculateBalance(movements);
 
     return movements;
 }
 
-function calculateMovementEffectCents(movement) {
-    const cents = toCents(movement.amount);
+/**
+ * Calcula el resumen financiero de caja.
+ */
+export function getCashSummary() {
+    const state = readState();
 
-    switch (movement.type) {
-        case MOVEMENT_TYPES.INCOME:
-        case MOVEMENT_TYPES.ADJUSTMENT:
-            return cents;
-        case MOVEMENT_TYPES.EXPENSE:
-            return -cents;
-        default:
-            return 0;
-    }
-}
+    let income = 0;
+    let expenses = 0;
 
-function recalculateBalance(movements = getMovements()) {
-    const openingBalanceCents = toCents(getState().cash.openingBalance);
+    for (const movement of state.movements) {
+        const amount = Number(movement.amount) || 0;
 
-    const balanceCents = movements.reduce(
-        (total, movement) => total + calculateMovementEffectCents(movement),
-        openingBalanceCents
-    );
-
-    if (!Number.isSafeInteger(balanceCents)) {
-        throw new Error("El saldo de caja supera el límite numérico permitido.");
-    }
-
-    const balance = fromCents(balanceCents);
-    setState("cash.currentBalance", balance);
-
-    return balance;
-}
-
-export function listCashMovements() {
-    return getMovements()
-        .map(movement => structuredClone(movement))
-        .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-}
-
-export function getCashMovementById(id) {
-    const movement = getMovements().find(item => item.id === id);
-    return movement ? structuredClone(movement) : null;
-}
-
-export function addCashMovement(data = {}) {
-    const allowedTypes = Object.values(MOVEMENT_TYPES);
-    const type = String(data.type ?? "");
-
-    if (!allowedTypes.includes(type) || type === MOVEMENT_TYPES.OPENING) {
-        throw new Error("Selecciona un tipo de movimiento válido.");
-    }
-
-    const now = new Date().toISOString();
-
-    const movement = {
-        id: generateId("movement"),
-        type,
-        amount: validateAmount(data.amount),
-        description: validateText(data.description, "La descripción"),
-        reference: String(data.reference ?? "").trim().slice(0, 100),
-        notes: String(data.notes ?? "").trim().slice(0, 1000),
-        createdAt: now,
-        updatedAt: now
-    };
-
-    saveMovements([...getMovements(), movement]);
-
-    return structuredClone(movement);
-}
-
-export function updateCashMovement(id, changes = {}) {
-    const movements = getMovements();
-    const existing = movements.find(item => item.id === id);
-
-    if (!existing) {
-        throw new Error("No se encontró el movimiento de caja.");
-    }
-
-    const updated = { ...existing };
-
-    if (changes.type !== undefined) {
-        const type = String(changes.type);
-
-        if (
-            !Object.values(MOVEMENT_TYPES).includes(type) ||
-            type === MOVEMENT_TYPES.OPENING
-        ) {
-            throw new Error("El tipo de movimiento no es válido.");
+        if (movement.type === "in") {
+            income += amount;
+        } else if (movement.type === "out") {
+            expenses += amount;
         }
-
-        updated.type = type;
     }
 
-    if (changes.amount !== undefined) {
-        updated.amount = validateAmount(changes.amount);
-    }
+    income = roundMoney(income);
+    expenses = roundMoney(expenses);
 
-    if (changes.description !== undefined) {
-        updated.description = validateText(
-            changes.description,
-            "La descripción"
-        );
-    }
+    const opening = roundMoney(state.opening);
 
-    if (changes.reference !== undefined) {
-        updated.reference = String(changes.reference ?? "").trim().slice(0, 100);
-    }
-
-    if (changes.notes !== undefined) {
-        updated.notes = String(changes.notes ?? "").trim().slice(0, 1000);
-    }
-
-    updated.updatedAt = new Date().toISOString();
-
-    saveMovements(
-        movements.map(item => item.id === id ? updated : item)
-    );
-
-    return structuredClone(updated);
+    return {
+        opening,
+        income,
+        expenses,
+        totalIn: income,
+        totalOut: expenses,
+        balance: roundMoney(opening + income - expenses),
+        movementCount: state.movements.length
+    };
 }
 
-export function deleteCashMovement(id) {
-    const movements = getMovements();
-    const exists = movements.some(item => item.id === id);
+/**
+ * Elimina todos los movimientos.
+ */
+export function clearCashMovements() {
+    const state = readState();
 
-    if (!exists) {
-        return false;
-    }
+    state.movements = [];
 
-    saveMovements(movements.filter(item => item.id !== id));
+    saveState(state);
 
     return true;
 }
 
-export function setOpeningBalance(value) {
-    const amount = Number(value);
-
-    if (!Number.isSafeInteger(amount) || amount < 0) {
-        throw new Error(
-            "El saldo inicial debe ser un entero igual o mayor que cero."
-        );
+/**
+ * Obtiene un movimiento por identificador.
+ */
+export function getCashMovement(id) {
+    if (!id) {
+        return null;
     }
 
-    setState("cash.openingBalance", amount);
-    recalculateBalance();
+    const state = readState();
 
-    return amount;
+    return state.movements.find(
+        movement => movement.id === id
+    ) || null;
 }
 
-export function getCashBalance() {
-    return recalculateBalance();
-}
+/**
+ * Obtiene estadísticas por tipo de movimiento.
+ */
+export function getCashMovementStatistics() {
+    const state = readState();
 
-export function getCashSummary() {
-    const movements = getMovements();
-
-    const totals = {
+    const statistics = {
+        total: state.movements.length,
+        incomeCount: 0,
+        expenseCount: 0,
         income: 0,
-        expenses: 0,
-        adjustments: 0
+        expenses: 0
     };
 
-    for (const movement of movements) {
-        const cents = toCents(movement.amount);
+    for (const movement of state.movements) {
+        if (movement.type === "in") {
+            statistics.incomeCount++;
+            statistics.income += Number(movement.amount) || 0;
+        }
 
-        switch (movement.type) {
-            case MOVEMENT_TYPES.INCOME:
-                totals.income += cents;
-                break;
-            case MOVEMENT_TYPES.EXPENSE:
-                totals.expenses += cents;
-                break;
-            case MOVEMENT_TYPES.ADJUSTMENT:
-                totals.adjustments += cents;
-                break;
-            default:
-                break;
+        if (movement.type === "out") {
+            statistics.expenseCount++;
+            statistics.expenses += Number(movement.amount) || 0;
         }
     }
 
-    return {
-        openingBalance: Number(getState().cash.openingBalance) || 0,
-        income: fromCents(totals.income),
-        expenses: fromCents(totals.expenses),
-        adjustments: fromCents(totals.adjustments),
-        currentBalance: recalculateBalance(movements),
-        movementCount: movements.length
-    };
+    statistics.income = roundMoney(statistics.income);
+    statistics.expenses = roundMoney(statistics.expenses);
+
+    return statistics;
 }
-
-export function loadCashMovementsIntoState() {
-    const movements = getMovements();
-
-    setState("cash.movements", movements);
-    recalculateBalance(movements);
-
-    return movements.length;
-}
-
-export { MOVEMENT_TYPES };
