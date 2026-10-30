@@ -1,4 +1,3 @@
-
 // js/backup/import.js
 
 import { APP_CONFIG } from "../config.js";
@@ -35,18 +34,24 @@ function validateBackup(backup) {
 
     if (
         backup.schemaVersion !== undefined &&
-        (!Number.isInteger(backup.schemaVersion) ||
+        (
+            !Number.isInteger(backup.schemaVersion) ||
             backup.schemaVersion < 1 ||
-            backup.schemaVersion > APP_CONFIG.storage.currentVersion)
+            backup.schemaVersion > APP_CONFIG.storage.currentVersion
+        )
     ) {
-        throw new Error("La versión del respaldo no es compatible con esta aplicación.");
+        throw new Error(
+            "La versión del respaldo no es compatible con esta aplicación."
+        );
     }
 
     const allowedKeys = Object.values(APP_CONFIG.storage.keys);
 
     for (const key of Object.keys(backup.data)) {
         if (!allowedKeys.includes(key)) {
-            throw new Error(`El respaldo contiene una sección desconocida: ${key}`);
+            throw new Error(
+                `El respaldo contiene una sección desconocida: ${key}`
+            );
         }
     }
 
@@ -58,29 +63,56 @@ function normalizeImportedData(backup) {
 
     if (
         data.settings !== undefined &&
-        (!data.settings || typeof data.settings !== "object" || Array.isArray(data.settings))
+        (
+            !data.settings ||
+            typeof data.settings !== "object" ||
+            Array.isArray(data.settings)
+        )
     ) {
         throw new Error("La configuración del respaldo no es válida.");
     }
 
-    if (data.denominations !== undefined && !Array.isArray(data.denominations)) {
-        throw new Error("La lista de denominaciones del respaldo no es válida.");
+    if (
+        data.denominations !== undefined &&
+        !Array.isArray(data.denominations)
+    ) {
+        throw new Error(
+            "La lista de denominaciones del respaldo no es válida."
+        );
     }
 
-    if (data.history !== undefined && !Array.isArray(data.history)) {
+    if (
+        data.history !== undefined &&
+        !Array.isArray(data.history)
+    ) {
         throw new Error("El historial del respaldo no es válido.");
     }
 
-    if (data.drafts !== undefined && !Array.isArray(data.drafts)) {
-        throw new Error("La lista de borradores del respaldo no es válida.");
+    if (
+        data.drafts !== undefined &&
+        !Array.isArray(data.drafts)
+    ) {
+        throw new Error(
+            "La lista de borradores del respaldo no es válida."
+        );
     }
 
-    if (data.cashMovements !== undefined && !Array.isArray(data.cashMovements)) {
-        throw new Error("Los movimientos de caja del respaldo no son válidos.");
+    if (
+        data.cashMovements !== undefined &&
+        !Array.isArray(data.cashMovements)
+    ) {
+        throw new Error(
+            "Los movimientos de caja del respaldo no son válidos."
+        );
     }
 
-    if (data.machines !== undefined && !Array.isArray(data.machines)) {
-        throw new Error("El registro de máquinas del respaldo no es válido.");
+    if (
+        data.machines !== undefined &&
+        !Array.isArray(data.machines)
+    ) {
+        throw new Error(
+            "El registro de máquinas del respaldo no es válido."
+        );
     }
 
     return {
@@ -103,19 +135,36 @@ export function inspectBackupObject(backup) {
         exportedAt: backup.exportedAt ?? null,
         format: backup.format ?? "formato anterior",
         sections: Object.keys(data),
+
         summary: {
-            denominations: Array.isArray(data.denominations) ? data.denominations.length : 0,
-            drafts: Array.isArray(data.drafts) ? data.drafts.length : 0,
-            history: Array.isArray(data.history) ? data.history.length : 0,
-            cashMovements: Array.isArray(data.cashMovements) ? data.cashMovements.length : 0,
-            machines: Array.isArray(data.machines) ? data.machines.length : 0
+            denominations: Array.isArray(data.denominations)
+                ? data.denominations.length
+                : 0,
+
+            drafts: Array.isArray(data.drafts)
+                ? data.drafts.length
+                : 0,
+
+            history: Array.isArray(data.history)
+                ? data.history.length
+                : 0,
+
+            cashMovements: Array.isArray(data.cashMovements)
+                ? data.cashMovements.length
+                : 0,
+
+            machines: Array.isArray(data.machines)
+                ? data.machines.length
+                : 0
         }
     };
 }
 
 export async function readBackupFile(file) {
     if (!(file instanceof Blob)) {
-        throw new TypeError("Selecciona un archivo de respaldo válido.");
+        throw new TypeError(
+            "Selecciona un archivo de respaldo válido."
+        );
     }
 
     if (file.size <= 0) {
@@ -124,14 +173,23 @@ export async function readBackupFile(file) {
 
     if (file.size > MAX_FILE_BYTES) {
         throw new Error(
-            `El archivo supera el límite permitido de ${Math.round(MAX_FILE_BYTES / 1024 / 1024)} MB.`
+            `El archivo supera el límite permitido de ${
+                Math.round(MAX_FILE_BYTES / 1024 / 1024)
+            } MB.`
         );
     }
 
-    const filename = typeof file.name === "string" ? file.name : "";
+    const filename = typeof file.name === "string"
+        ? file.name
+        : "";
 
-    if (filename && !filename.toLowerCase().endsWith(".json")) {
-        throw new Error("Selecciona un archivo de respaldo con extensión .json.");
+    if (
+        filename &&
+        !filename.toLowerCase().endsWith(".json")
+    ) {
+        throw new Error(
+            "Selecciona un archivo de respaldo con extensión .json."
+        );
     }
 
     let parsed;
@@ -139,7 +197,9 @@ export async function readBackupFile(file) {
     try {
         parsed = JSON.parse(await file.text());
     } catch {
-        throw new Error("No se pudo leer el archivo JSON. Comprueba que no esté dañado.");
+        throw new Error(
+            "No se pudo leer el archivo JSON. Comprueba que no esté dañado."
+        );
     }
 
     validateBackup(parsed);
@@ -192,7 +252,10 @@ export function restoreBackup(backup, options = {}) {
         setState("machines.registry", machines);
     }
 
-    setState("backup.lastImportAt", new Date().toISOString());
+    setState(
+        "backup.lastImportAt",
+        new Date().toISOString()
+    );
 
     return {
         success: true,
@@ -234,7 +297,9 @@ export function restoreRestorePoint(restorePoint) {
         typeof restorePoint.data !== "object" ||
         Array.isArray(restorePoint.data)
     ) {
-        throw new Error("El punto de restauración no es válido.");
+        throw new Error(
+            "El punto de restauración no es válido."
+        );
     }
 
     const allowedKeys = Object.values(APP_CONFIG.storage.keys);
@@ -257,11 +322,17 @@ export function restoreRestorePoint(restorePoint) {
     } catch (error) {
         for (const key of allowedKeys) {
             try {
-                if (previousValues[key] !== null && previousValues[key] !== undefined) {
+                if (
+                    previousValues[key] !== null &&
+                    previousValues[key] !== undefined
+                ) {
                     writeStorage(key, previousValues[key]);
                 }
             } catch (rollbackError) {
-                console.error("No se pudo restaurar un dato anterior:", rollbackError);
+                console.error(
+                    "No se pudo restaurar un dato anterior:",
+                    rollbackError
+                );
             }
         }
 
