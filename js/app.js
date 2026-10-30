@@ -489,4 +489,297 @@ function renderReports() {
                 </tr>
             `).join("");
     }
+}async function handleClick(event) {
+    const button = event.target.closest("[data-action]");
+    if (!button || button.disabled) return;
+
+    const action = button.dataset.action;
+    const id = button.dataset.id;
+
+    await safelyAsync(async () => {
+        switch (action) {
+            case "navigate":
+                navigate(button.dataset.view);
+                break;
+
+            case "increment":
+                captureUndoState();
+                incrementQuantity(id);
+                persistCurrentCount();
+                renderCounter();
+                break;
+
+            case "decrement":
+                captureUndoState();
+                decrementQuantity(id);
+                persistCurrentCount();
+                renderCounter();
+                break;
+
+            case "reset-counter":
+                if (confirmAction("¿Quieres reiniciar el conteo actual?")) {
+                    captureUndoState();
+                    resetCounter();
+                    persistCurrentCount();
+                    renderCounter();
+                    notify("Conteo reiniciado.", "success");
+                }
+                break;
+
+            case "undo":
+                if (undo()) {
+                    persistCurrentCount();
+                    renderCounter();
+                }
+                break;
+
+            case "redo":
+                if (redo()) {
+                    persistCurrentCount();
+                    renderCounter();
+                }
+                break;
+
+            case "save-draft":
+                saveCurrentDraft();
+                renderDrafts();
+                notify("Borrador guardado.", "success");
+                break;
+
+            case "save-draft-as-new":
+                saveDraftAsNew();
+                renderDrafts();
+                notify("Nuevo borrador guardado.", "success");
+                break;
+
+            case "load-draft":
+                if (loadDraft(id)) {
+                    persistCurrentCount();
+                    renderCounter();
+                    navigate(APP_VIEWS.COUNTER);
+                    notify("Borrador cargado.", "success");
+                }
+                break;
+
+            case "delete-draft":
+                if (confirmAction("¿Quieres eliminar este borrador?")) {
+                    deleteDraft(id);
+                    renderDrafts();
+                    notify("Borrador eliminado.", "success");
+                }
+                break;
+
+            case "restore-record":
+                restoreRecordToCounter(id);
+                persistCurrentCount();
+                renderCounter();
+                navigate(APP_VIEWS.COUNTER);
+                notify("Conteo restaurado.", "success");
+                break;
+
+            case "delete-record":
+                if (confirmAction("¿Quieres eliminar este registro?")) {
+                    deleteRecord(id);
+                    renderHistory();
+                    renderReports();
+                    notify("Registro eliminado.", "success");
+                }
+                break;
+
+            case "receipt-record": {
+                const record = listRecords().find(item => item.id === id);
+                if (!record) throw new Error("No se encontró el registro.");
+                downloadReceiptHTML(record);
+                break;
+            }
+
+            case "receipt-text": {
+                const record = listRecords().find(item => item.id === id);
+                if (!record) throw new Error("No se encontró el registro.");
+                downloadReceiptText(record);
+                break;
+            }
+
+            case "compare-records": {
+                const firstId = value("comparison-record-a");
+                const secondId = value("comparison-record-b");
+
+                if (!firstId || !secondId) {
+                    throw new Error("Selecciona los dos conteos que deseas comparar.");
+                }
+
+                if (firstId === secondId) {
+                    throw new Error("Selecciona dos conteos diferentes.");
+                }
+
+                const result = compareRecords(firstId, secondId);
+                renderComparisonResult(result);
+                break;
+            }
+
+            case "export-history":
+                exportHistoryCSV();
+                notify("Historial exportado.", "success");
+                break;
+
+            case "export-daily":
+                exportDailyStatisticsCSV(
+                    value("report-start-date"),
+                    value("report-end-date")
+                );
+                notify("Estadísticas diarias exportadas.", "success");
+                break;
+
+            case "export-denominations":
+                exportDenominationStatisticsCSV(
+                    value("report-start-date"),
+                    value("report-end-date")
+                );
+                notify("Estadísticas por denominación exportadas.", "success");
+                break;
+
+            case "delete-movement":
+                if (confirmAction("¿Quieres eliminar este movimiento de caja?")) {
+                    deleteCashMovement(id);
+                    renderCash();
+                    notify("Movimiento eliminado.", "success");
+                }
+                break;
+
+            case "set-opening-balance": {
+                const amount = Number(value("opening-balance-input"));
+
+                setOpeningBalance(amount);
+                persistOpeningBalance(amount);
+                renderCash();
+                notify("Saldo inicial actualizado.", "success");
+                break;
+            }
+
+            case "select-machine":
+                setActiveMachine(id);
+                renderMachines();
+                notify("Máquina seleccionada.", "success");
+                break;
+
+            case "connect-machine": {
+                const result = await connectMachine(id);
+                renderMachines();
+                notify(
+                    result.message,
+                    result.success ? "success" : "warning"
+                );
+                break;
+            }
+
+            case "disconnect-machine": {
+                const result = await disconnectMachine(id);
+                renderMachines();
+                notify(result.message, "info");
+                break;
+            }
+
+            case "delete-machine":
+                if (confirmAction("¿Quieres eliminar esta máquina del registro?")) {
+                    removeMachine(id);
+                    persistMachineRegistry();
+                    renderMachines();
+                    notify("Máquina eliminada.", "success");
+                }
+                break;
+
+            case "toggle-denomination": {
+                const denomination = getState().denominations.find(
+                    item => item.id === id
+                );
+
+                if (!denomination) {
+                    throw new Error("No se encontró la denominación.");
+                }
+
+                editDenomination(id, {
+                    enabled: !denomination.enabled
+                });
+
+                renderDenominationSettings();
+                renderCounter();
+                break;
+            }
+
+            case "delete-denomination":
+                if (confirmAction("¿Quieres eliminar esta denominación?")) {
+                    deleteDenomination(id);
+                    renderDenominationSettings();
+                    renderCounter();
+                    notify("Denominación eliminada.", "success");
+                }
+                break;
+
+            case "theme-light":
+                setTheme("light");
+                applySavedTheme();
+                break;
+
+            case "theme-dark":
+                setTheme("dark");
+                applySavedTheme();
+                break;
+
+            case "theme-system":
+                setTheme("system");
+                applySavedTheme();
+                break;
+
+            case "export-backup":
+                downloadBackup();
+                notify("Copia de seguridad descargada.", "success");
+                break;
+
+            case "show-backup-preview":
+                text(
+                    "backup-preview",
+                    JSON.stringify(getBackupPreview(), null, 2)
+                );
+                break;
+
+            case "import-backup": {
+                const file = el("backup-file")?.files?.[0];
+
+                if (!file) {
+                    throw new Error("Selecciona un archivo de respaldo.");
+                }
+
+                const inspected = await readBackupFile(file);
+
+                const approved = globalThis.confirm(
+                    `Se importará el respaldo de ${inspected.preview.application}. ¿Quieres reemplazar los datos existentes?`
+                );
+
+                if (!approved) break;
+
+                restoreBackup(inspected.backup, {
+                    overwrite: true
+                });
+
+                notify(
+                    "Respaldo restaurado. La aplicación se recargará.",
+                    "success"
+                );
+
+                setTimeout(() => window.location.reload(), 800);
+                break;
+            }
+
+            case "open-nova-home":
+                window.open(
+                    "https://cumba35.github.io/Nova-APPS/",
+                    "_blank",
+                    "noopener,noreferrer"
+                );
+                break;
+
+            default:
+                break;
+        }
+    });
 }
