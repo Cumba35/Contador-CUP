@@ -1,3 +1,4 @@
+
 // js/app.js
 
 import { APP_CONFIG } from "./config.js";
