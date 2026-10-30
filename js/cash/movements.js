@@ -1,144 +1,319 @@
-const STORAGE_KEY = "contadorCUP.pro.v1";
+
+// js/cash/movements.js
+
+import { getState, setState } from "../state.js";
+import { readStorage, writeStorage } from "../storage.js";
+
+const STORAGE_KEY = "cashMovements";
+const LEGACY_STORAGE_KEY = "contadorCUP.pro.v1";
 
 const MAX_AMOUNT = 999999999999.99;
-const DECIMAL_PLACES = 2;
 
 function roundMoney(value) {
     return Math.round((value + Number.EPSILON) * 100) / 100;
 }
 
-function normalizeAmount(value) {
+function normalizeAmount(value, allowZero = false) {
     const amount = Number(value);
 
-    if (!Number.isFinite(amount) || amount <= 0 || amount > MAX_AMOUNT) {
-        throw new Error("El importe debe ser mayor que cero y válido.");
+    if (
+        !Number.isFinite(amount) ||
+        amount < 0 ||
+        (!allowZero && amount === 0) ||
+        amount > MAX_AMOUNT
+    ) {
+        throw new Error("El importe debe ser válido y no superar el límite permitido.");
     }
 
     return roundMoney(amount);
 }
 
-function readState() {
-    try {
-        const saved = localStorage.getItem(STORAGE_KEY);
-
-        if (!saved) {
-            return {
-                movements: [],
-                opening: 0,
-                settings: {}
-            };
-        }
-
-        const parsed = JSON.parse(saved);
-
-        return {
-            movements: Array.isArray(parsed.movements)
-                ? parsed.movements
-                : [],
-            opening: Number(parsed.opening) || 0,
-            settings: parsed.settings && typeof parsed.settings === "object"
-                ? parsed.settings
-                : {}
-        };
-    } catch (error) {
-        console.error("Error leyendo los movimientos:", error);
-
-        return {
-            movements: [],
-            opening: 0,
-            settings: {}
-        };
-    }
-}
-
-function saveState(state) {
-    try {
-        localStorage.setItem(
-            STORAGE_KEY,
-            JSON.stringify(state)
-        );
-
-        window.dispatchEvent(
-            new CustomEvent("cash:updated", {
-                detail: {
-                    movements: state.movements.length,
-                    opening: state.opening
-                }
-            })
-        );
-
-        return true;
-    } catch (error) {
-        console.error("Error guardando los movimientos:", error);
-
-        throw new Error("No se pudieron guardar los movimientos.");
-    }
-}
-
 function generateMovementId() {
-    if (typeof crypto !== "undefined" && crypto.randomUUID) {
-        return crypto.randomUUID();
+    if (globalThis.crypto?.randomUUID) {
+        return globalThis.crypto.randomUUID();
     }
 
-    return (
-        Date.now().toString(36) +
-        Math.random().toString(36).slice(2)
-    );
+    return `cash-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
 }
 
 function normalizeMovementType(type) {
     const normalized = String(type || "").trim().toLowerCase();
 
-    if (normalized !== "in" && normalized !== "out") {
+    const aliases = {
+        in: "income",
+        out: "expense",
+        income: "income",
+        expense: "expense",
+        adjustment: "adjustment"
+    };
+
+    const result = aliases[normalized];
+
+    if (!result) {
         throw new Error("Tipo de movimiento no válido.");
     }
 
-    return normalized;
+    return result;
 }
 
-function normalizeReason(reason) {
-    return String(reason || "").trim().slice(0, 500);
+function normalizeText(value, maximumLength) {
+    return String(value ?? "").trim().slice(0, maximumLength);
 }
 
-function validateMovementData(data) {
+function normalizeMovement(data, existing = {}) {
     if (!data || typeof data !== "object") {
         throw new Error("Los datos del movimiento no son válidos.");
     }
 
+    const amount = data.amount !== undefined
+        ? normalizeAmount(data.amount)
+        : normalizeAmount(existing.amount);
+
+    const type = data.type !== undefined
+        ? normalizeMovementType(data.type)
+        : normalizeMovementType(existing.type);
+
+    const description = normalizeText(
+        data.description ?? data.reason ?? existing.description ?? existing.reason,
+        160
+    );
+
+    if (!description) {
+        throw new Error("Escribe una descripción para el movimiento.");
+    }
+
     return {
-        amount: normalizeAmount(data.amount),
-        type: normalizeMovementType(data.type),
-        reason: normalizeReason(data.reason)
+        id: existing.id || data.id || generateMovementId(),
+        type,
+        amount,
+        description,
+        reference: normalizeText(
+            data.reference ?? existing.reference,
+            120
+        ),
+        notes: normalizeText(
+            data.notes ?? existing.notes,
+            500
+        ),
+        createdAt:
+            existing.createdAt ||
+            existing.at ||
+            data.createdAt ||
+            new Date().toISOString()
+    };
+}
+
+function normalizeMovementList(movements) {
+    if (!Array.isArray(movements)) {
+        return [];
+    }
+
+    return movements
+        .filter(item => item && typeof item === "object")
+        .map(item => {
+            try {
+                const legacyDescription =
+                    item.description ||
+                    item.reason ||
+                    item.reference ||
+                    "Movimiento de caja";
+
+                return normalizeMovement({
+                    ...item,
+                    description: legacyDescription
+                }, {
+                    ...item,
+                    description: legacyDescription
+                });
+            } catch {
+                return null;
+            }
+        })
+        .filter(Boolean);
+}
+
+function getCashState() {
+    const state = getState();
+    const cash = state.cash || {};
+
+    return {
+        openingBalance: normalizeAmount(
+            cash.openingBalance ?? 0,
+            true
+        ),
+        movements: normalizeMovementList(cash.movements)
+    };
+}
+
+function persistCashState(cash) {
+    const normalized = {
+        openingBalance: normalizeAmount(
+            cash.openingBalance ?? 0,
+            true
+        ),
+        movements: normalizeMovementList(cash.movements)
+    };
+
+    setState("cash.openingBalance", normalized.openingBalance);
+    setState("cash.movements", normalized.movements);
+
+    const currentBalance = calculateBalance(
+        normalized.openingBalance,
+        normalized.movements
+    );
+
+    setState("cash.currentBalance", currentBalance);
+
+    writeStorage(STORAGE_KEY, {
+        openingBalance: normalized.openingBalance,
+        movements: normalized.movements
+    });
+
+    globalThis.dispatchEvent?.(
+        new CustomEvent("cash:updated", {
+            detail: {
+                movements: normalized.movements.length,
+                openingBalance: normalized.openingBalance,
+                currentBalance
+            }
+        })
+    );
+
+    return normalized;
+}
+
+function getMovementEffect(movement) {
+    const amount = normalizeAmount(movement.amount);
+
+    switch (movement.type) {
+        case "income":
+            return amount;
+
+        case "expense":
+            return -amount;
+
+        case "adjustment":
+            return amount;
+
+        default:
+            return 0;
+    }
+}
+
+function calculateBalance(openingBalance, movements) {
+    const cents = Math.round(openingBalance * 100);
+
+    const totalCents = movements.reduce(
+        (total, movement) => {
+            return total + Math.round(
+                getMovementEffect(movement) * 100
+            );
+        },
+        cents
+    );
+
+    if (!Number.isSafeInteger(totalCents)) {
+        throw new Error("El saldo de caja supera el límite numérico permitido.");
+    }
+
+    return roundMoney(totalCents / 100);
+}
+
+function readLegacyState() {
+    try {
+        const raw = globalThis.localStorage?.getItem(LEGACY_STORAGE_KEY);
+
+        if (!raw) {
+            return null;
+        }
+
+        const parsed = JSON.parse(raw);
+
+        if (!parsed || typeof parsed !== "object") {
+            return null;
+        }
+
+        return {
+            openingBalance: normalizeAmount(
+                parsed.opening ?? 0,
+                true
+            ),
+            movements: normalizeMovementList(parsed.movements)
+        };
+    } catch {
+        return null;
+    }
+}
+
+/**
+ * Carga los movimientos desde el almacenamiento general.
+ * También migra los datos del formato antiguo.
+ */
+export function loadCashMovementsIntoState() {
+    const saved = readStorage(STORAGE_KEY, null);
+
+    let openingBalance = 0;
+    let movements = [];
+
+    if (saved && typeof saved === "object") {
+        openingBalance = normalizeAmount(
+            saved.openingBalance ?? saved.opening ?? 0,
+            true
+        );
+
+        movements = normalizeMovementList(saved.movements);
+    } else {
+        const legacy = readLegacyState();
+
+        if (legacy) {
+            openingBalance = legacy.openingBalance;
+            movements = legacy.movements;
+        } else {
+            const currentCash = getState().cash || {};
+
+            openingBalance = normalizeAmount(
+                currentCash.openingBalance ?? 0,
+                true
+            );
+
+            movements = normalizeMovementList(
+                currentCash.movements
+            );
+        }
+    }
+
+    const cash = persistCashState({
+        openingBalance,
+        movements
+    });
+
+    return {
+        openingBalance: cash.openingBalance,
+        movementCount: cash.movements.length
     };
 }
 
 /**
- * Añade un movimiento de efectivo.
+ * Registra una entrada, salida o ajuste.
  *
  * data:
  * {
+ *   type: "income" | "expense" | "adjustment",
  *   amount: Number,
- *   type: "in" | "out",
- *   reason: String
+ *   description: String,
+ *   reference: String,
+ *   notes: String
  * }
  */
 export function addCashMovement(data) {
-    const validated = validateMovementData(data);
-    const state = readState();
+    const movement = normalizeMovement(data);
+    const cash = getCashState();
 
-    const movement = {
-        id: generateMovementId(),
-        at: new Date().toISOString(),
-        amount: validated.amount,
-        type: validated.type,
-        reason: validated.reason
-    };
+    cash.movements.push(movement);
 
-    state.movements.push(movement);
+    persistCashState(cash);
 
-    saveState(state);
-
-    return movement;
+    return { ...movement };
 }
 
 /**
@@ -149,9 +324,9 @@ export function updateCashMovement(id, updates) {
         throw new Error("Datos de actualización no válidos.");
     }
 
-    const state = readState();
+    const cash = getCashState();
 
-    const index = state.movements.findIndex(
+    const index = cash.movements.findIndex(
         movement => movement.id === id
     );
 
@@ -159,28 +334,21 @@ export function updateCashMovement(id, updates) {
         throw new Error("No se encontró el movimiento.");
     }
 
-    const current = state.movements[index];
+    const current = cash.movements[index];
 
-    const updated = {
-        ...current,
-        amount: updates.amount !== undefined
-            ? normalizeAmount(updates.amount)
-            : current.amount,
+    const updated = normalizeMovement(
+        {
+            ...current,
+            ...updates
+        },
+        current
+    );
 
-        type: updates.type !== undefined
-            ? normalizeMovementType(updates.type)
-            : current.type,
+    cash.movements[index] = updated;
 
-        reason: updates.reason !== undefined
-            ? normalizeReason(updates.reason)
-            : current.reason
-    };
+    persistCashState(cash);
 
-    state.movements[index] = updated;
-
-    saveState(state);
-
-    return updated;
+    return { ...updated };
 }
 
 /**
@@ -191,9 +359,9 @@ export function deleteCashMovement(id) {
         throw new Error("Identificador no válido.");
     }
 
-    const state = readState();
+    const cash = getCashState();
 
-    const index = state.movements.findIndex(
+    const index = cash.movements.findIndex(
         movement => movement.id === id
     );
 
@@ -201,50 +369,40 @@ export function deleteCashMovement(id) {
         throw new Error("No se encontró el movimiento.");
     }
 
-    const deleted = state.movements.splice(index, 1)[0];
+    const deleted = cash.movements.splice(index, 1)[0];
 
-    saveState(state);
+    persistCashState(cash);
 
-    return deleted;
+    return { ...deleted };
 }
 
 /**
  * Establece el saldo inicial de caja.
  */
 export function setOpeningBalance(amount) {
-    const value = Number(amount);
+    const cash = getCashState();
 
-    if (
-        !Number.isFinite(value) ||
-        value < 0 ||
-        value > MAX_AMOUNT
-    ) {
-        throw new Error("El saldo inicial no es válido.");
-    }
+    cash.openingBalance = normalizeAmount(amount, true);
 
-    const state = readState();
+    persistCashState(cash);
 
-    state.opening = roundMoney(value);
-
-    saveState(state);
-
-    return state.opening;
+    return cash.openingBalance;
 }
 
 /**
  * Obtiene el saldo inicial.
  */
 export function getOpeningBalance() {
-    return readState().opening;
+    return getCashState().openingBalance;
 }
 
 /**
- * Devuelve todos los movimientos.
+ * Devuelve los movimientos registrados.
  */
 export function listCashMovements(options = {}) {
-    const state = readState();
+    const cash = getCashState();
 
-    let movements = [...state.movements];
+    let movements = [...cash.movements];
 
     if (options.type) {
         const type = normalizeMovementType(options.type);
@@ -255,70 +413,97 @@ export function listCashMovements(options = {}) {
     }
 
     if (options.search) {
-        const search = String(options.search).toLowerCase();
+        const search = String(options.search).trim().toLowerCase();
 
-        movements = movements.filter(movement =>
-            String(movement.reason || "")
-                .toLowerCase()
-                .includes(search)
-        );
+        movements = movements.filter(movement => {
+            const content = [
+                movement.description,
+                movement.reference,
+                movement.notes
+            ].join(" ").toLowerCase();
+
+            return content.includes(search);
+        });
     }
 
     movements.sort((a, b) =>
-        new Date(b.at).getTime() - new Date(a.at).getTime()
+        new Date(b.createdAt).getTime() -
+        new Date(a.createdAt).getTime()
     );
 
-    if (Number.isInteger(options.limit) && options.limit >= 0) {
+    if (
+        Number.isInteger(options.limit) &&
+        options.limit >= 0
+    ) {
         movements = movements.slice(0, options.limit);
     }
 
-    return movements;
+    return movements.map(movement => ({ ...movement }));
 }
 
 /**
  * Calcula el resumen financiero de caja.
  */
 export function getCashSummary() {
-    const state = readState();
+    const cash = getCashState();
 
     let income = 0;
     let expenses = 0;
+    let adjustments = 0;
 
-    for (const movement of state.movements) {
-        const amount = Number(movement.amount) || 0;
+    for (const movement of cash.movements) {
+        const amount = normalizeAmount(movement.amount);
 
-        if (movement.type === "in") {
-            income += amount;
-        } else if (movement.type === "out") {
-            expenses += amount;
+        switch (movement.type) {
+            case "income":
+                income += amount;
+                break;
+
+            case "expense":
+                expenses += amount;
+                break;
+
+            case "adjustment":
+                adjustments += amount;
+                break;
         }
     }
 
     income = roundMoney(income);
     expenses = roundMoney(expenses);
+    adjustments = roundMoney(adjustments);
 
-    const opening = roundMoney(state.opening);
+    const currentBalance = calculateBalance(
+        cash.openingBalance,
+        cash.movements
+    );
 
     return {
-        opening,
+        openingBalance: cash.openingBalance,
+        opening: cash.openingBalance,
         income,
         expenses,
+        adjustments,
         totalIn: income,
         totalOut: expenses,
-        balance: roundMoney(opening + income - expenses),
-        movementCount: state.movements.length
+        netMovement: roundMoney(
+            income - expenses + adjustments
+        ),
+        currentBalance,
+        balance: currentBalance,
+        movementCount: cash.movements.length
     };
 }
 
 /**
- * Elimina todos los movimientos.
+ * Elimina todos los movimientos sin modificar el saldo inicial.
  */
 export function clearCashMovements() {
-    const state = readState();
+    const cash = getCashState();
 
-    state.movements = [];
+    cash.movements = [];
 
-    saveState(state);
+    persistCashState(cash);
 
     return true;
 }
@@ -331,41 +516,53 @@ export function getCashMovement(id) {
         return null;
     }
 
-    const state = readState();
+    const movement = getCashState().movements.find(
+        item => item.id === id
+    );
 
-    return state.movements.find(
-        movement => movement.id === id
-    ) || null;
+    return movement ? { ...movement } : null;
 }
 
 /**
  * Obtiene estadísticas por tipo de movimiento.
  */
 export function getCashMovementStatistics() {
-    const state = readState();
+    const movements = getCashState().movements;
 
     const statistics = {
-        total: state.movements.length,
+        total: movements.length,
         incomeCount: 0,
         expenseCount: 0,
+        adjustmentCount: 0,
         income: 0,
-        expenses: 0
+        expenses: 0,
+        adjustments: 0
     };
 
-    for (const movement of state.movements) {
-        if (movement.type === "in") {
-            statistics.incomeCount++;
-            statistics.income += Number(movement.amount) || 0;
-        }
+    for (const movement of movements) {
+        const amount = normalizeAmount(movement.amount);
 
-        if (movement.type === "out") {
-            statistics.expenseCount++;
-            statistics.expenses += Number(movement.amount) || 0;
+        switch (movement.type) {
+            case "income":
+                statistics.incomeCount++;
+                statistics.income += amount;
+                break;
+
+            case "expense":
+                statistics.expenseCount++;
+                statistics.expenses += amount;
+                break;
+
+            case "adjustment":
+                statistics.adjustmentCount++;
+                statistics.adjustments += amount;
+                break;
         }
     }
 
     statistics.income = roundMoney(statistics.income);
     statistics.expenses = roundMoney(statistics.expenses);
+    statistics.adjustments = roundMoney(statistics.adjustments);
 
     return statistics;
 }
