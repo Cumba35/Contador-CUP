@@ -1,19 +1,44 @@
+
 // js/backup/import.js
 
 import { APP_CONFIG } from "../config.js";
 import {
     importStorageData,
     readStorage,
-    writeStorage
+    writeStorage,
+    removeStorage
 } from "../storage.js";
 import { setState } from "../state.js";
+import {
+    loadCashMovementsIntoState,
+    getCashSummary
+} from "../cash/movements.js";
 
 const MAX_FILE_BYTES = APP_CONFIG.limits.importedFileBytes;
+const MAX_CASH_AMOUNT = 999999999999.99;
 
 const ALLOWED_FORMATS = new Set([
     "contador-cup-backup",
     undefined
 ]);
+
+function isValidMoney(value) {
+    if (
+        value === null ||
+        value === undefined ||
+        value === ""
+    ) {
+        return false;
+    }
+
+    const amount = Number(value);
+
+    return (
+        Number.isFinite(amount) &&
+        amount >= 0 &&
+        amount <= MAX_CASH_AMOUNT
+    );
+}
 
 function validateBackup(backup) {
     if (!backup || typeof backup !== "object" || Array.isArray(backup)) {
@@ -58,6 +83,45 @@ function validateBackup(backup) {
     return true;
 }
 
+function normalizeCashMovements(value) {
+    // Formato antiguo: el valor era directamente una lista.
+    if (Array.isArray(value)) {
+        return value;
+    }
+
+    // Formato nuevo: objeto con saldo inicial y lista de movimientos.
+    if (
+        !value ||
+        typeof value !== "object" ||
+        Array.isArray(value)
+    ) {
+        throw new Error(
+            "Los movimientos de caja del respaldo no son válidos."
+        );
+    }
+
+    const movements = value.movements;
+
+    if (!Array.isArray(movements)) {
+        throw new Error(
+            "La lista de movimientos de caja del respaldo no es válida."
+        );
+    }
+
+    const openingBalance = value.openingBalance ?? value.opening ?? 0;
+
+    if (!isValidMoney(openingBalance)) {
+        throw new Error(
+            "El saldo inicial de caja del respaldo no es válido."
+        );
+    }
+
+    return {
+        openingBalance: Number(openingBalance),
+        movements
+    };
+}
+
 function normalizeImportedData(backup) {
     const data = { ...backup.data };
 
@@ -97,12 +161,9 @@ function normalizeImportedData(backup) {
         );
     }
 
-    if (
-        data.cashMovements !== undefined &&
-        !Array.isArray(data.cashMovements)
-    ) {
-        throw new Error(
-            "Los movimientos de caja del respaldo no son válidos."
+    if (data.cashMovements !== undefined) {
+        data.cashMovements = normalizeCashMovements(
+            data.cashMovements
         );
     }
 
@@ -119,6 +180,22 @@ function normalizeImportedData(backup) {
         ...backup,
         data
     };
+}
+
+function getCashMovementCount(value) {
+    if (Array.isArray(value)) {
+        return value.length;
+    }
+
+    if (
+        value &&
+        typeof value === "object" &&
+        Array.isArray(value.movements)
+    ) {
+        return value.movements.length;
+    }
+
+    return 0;
 }
 
 export function inspectBackupObject(backup) {
@@ -149,9 +226,7 @@ export function inspectBackupObject(backup) {
                 ? data.history.length
                 : 0,
 
-            cashMovements: Array.isArray(data.cashMovements)
-                ? data.cashMovements.length
-                : 0,
+            cashMovements: getCashMovementCount(data.cashMovements),
 
             machines: Array.isArray(data.machines)
                 ? data.machines.length
@@ -226,10 +301,14 @@ export function restoreBackup(backup, options = {}) {
     const settings = readStorage("settings", null);
     const denominations = readStorage("denominations", null);
     const history = readStorage("history", []);
-    const cashMovements = readStorage("cashMovements", []);
+    const cashMovements = readStorage("cashMovements", null);
     const machines = readStorage("machines", []);
 
-    if (settings && typeof settings === "object") {
+    if (
+        settings &&
+        typeof settings === "object" &&
+        !Array.isArray(settings)
+    ) {
         setState("settings", {
             ...APP_CONFIG.defaults,
             ...settings
@@ -244,8 +323,32 @@ export function restoreBackup(backup, options = {}) {
         setState("history.records", history);
     }
 
-    if (Array.isArray(cashMovements)) {
-        setState("cash.movements", cashMovements);
+    if (cashMovements !== null) {
+        // Rehidrata saldo inicial, movimientos y saldo calculado
+        // desde el formato que acaba de importarse.
+        loadCashMovementsIntoState();
+
+        const cashSummary = getCashSummary();
+
+        setState(
+            "cash.openingBalance",
+            cashSummary.openingBalance
+        );
+
+        setState(
+            "cash.movements",
+            cashSummary.movementCount >= 0
+                ? readStorage("cashMovements", null)?.movements ??
+                    readStorage("cashMovements", [])
+                : []
+        );
+
+        // La lista del estado se obtiene del módulo de caja para
+        // garantizar que contiene los movimientos normalizados.
+        setState(
+            "cash.currentBalance",
+            cashSummary.currentBalance
+        );
     }
 
     if (Array.isArray(machines)) {
@@ -314,18 +417,25 @@ export function restoreRestorePoint(restorePoint) {
             const value = restorePoint.data[key];
 
             if (value === null || value === undefined) {
+                removeStorage(key);
                 continue;
             }
 
             writeStorage(key, value);
         }
+
+        if (restorePoint.data.cashMovements !== undefined) {
+            loadCashMovementsIntoState();
+        }
     } catch (error) {
         for (const key of allowedKeys) {
             try {
                 if (
-                    previousValues[key] !== null &&
-                    previousValues[key] !== undefined
+                    previousValues[key] === null ||
+                    previousValues[key] === undefined
                 ) {
+                    removeStorage(key);
+                } else {
                     writeStorage(key, previousValues[key]);
                 }
             } catch (rollbackError) {
