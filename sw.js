@@ -1,14 +1,15 @@
+
 // sw.js
 
 "use strict";
 
-const CACHE_NAME = "contador-cup-v2.0.1";
+const CACHE_NAME = "contador-cup-v2.0.2";
 
 const APP_SHELL = [
     "./",
     "./index.html",
     "./manifest.webmanifest",
-    "./icon.svg",
+    "./assets/icons/icon.svg",
 
     // Estilos
     "./assets/css/variables.css",
@@ -49,6 +50,7 @@ const APP_SHELL = [
     // Máquinas
     "./js/machines/registry.js",
     "./js/machines/connections.js",
+    "./js/machines/image-storage.js",
 
     // Copias de seguridad
     "./js/backup/export.js",
