@@ -1,3 +1,4 @@
+
 // js/counter/denominations.js
 
 import { APP_CONFIG } from "../config.js";
@@ -111,9 +112,10 @@ export function addCustomDenomination(data) {
     const value = validateValue(data.value);
     const label = validateLabel(data.label || `${value} CUP`);
 
+    const signature = `${value}:${label.toLocaleLowerCase()}`;
+
     const duplicate = denominations.some(item =>
-        item.value === value &&
-        item.label.toLocaleLowerCase() === label.toLocaleLowerCase()
+        `${item.value}:${String(item.label).trim().toLocaleLowerCase()}` === signature
     );
 
     if (duplicate) {
@@ -165,10 +167,11 @@ export function updateDenomination(id, changes) {
         ? validateLabel(changes.label)
         : existing.label;
 
+    const signature = `${value}:${label.toLocaleLowerCase()}`;
+
     const duplicate = denominations.some(item =>
         item.id !== id &&
-        item.value === value &&
-        item.label.toLocaleLowerCase() === label.toLocaleLowerCase()
+        `${item.value}:${String(item.label).trim().toLocaleLowerCase()}` === signature
     );
 
     if (duplicate) {
@@ -279,6 +282,7 @@ export function validateDenominationList(list) {
 
     const errors = [];
     const ids = new Set();
+    const signatures = new Set();
 
     for (const item of list) {
         if (!item || typeof item !== "object") {
@@ -294,16 +298,32 @@ export function validateDenominationList(list) {
             ids.add(item.id);
         }
 
+        let value;
+        let label;
+
         try {
-            validateValue(item.value);
+            value = validateValue(item.value);
         } catch (error) {
             errors.push(error.message);
         }
 
         try {
-            validateLabel(item.label);
+            label = validateLabel(item.label);
         } catch (error) {
             errors.push(error.message);
+        }
+
+        if (value !== undefined && label !== undefined) {
+            const signature =
+                `${value}:${label.toLocaleLowerCase()}`;
+
+            if (signatures.has(signature)) {
+                errors.push(
+                    `Denominación duplicada: ${label} (${value} CUP).`
+                );
+            } else {
+                signatures.add(signature);
+            }
         }
     }
 
