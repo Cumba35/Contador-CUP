@@ -1,4 +1,3 @@
-// js/app.js
 
 import { APP_CONFIG } from "./config.js";
 import { getState, setState, markAppInitialized, setAppError, clearAppError } from "./state.js";
@@ -46,6 +45,7 @@ import {
 } from "./history/filters.js";
 
 import { compareRecords } from "./history/comparison.js";
+
 import {
     downloadReceiptHTML,
     downloadReceiptText
@@ -128,12 +128,14 @@ import {
 import { initializeUIEvents } from "./ui/events.js";
 
 import { renderCounter } from "./ui/render-counter.js";
+
 import {
     renderHistory,
     renderDrafts,
     renderComparisonOptions,
     renderComparisonResult
 } from "./ui/render-history.js";
+
 import { renderReports } from "./ui/render-reports.js";
 import { renderCash } from "./ui/render-cash.js";
 import { renderMachines } from "./ui/render-machines.js";
@@ -390,7 +392,11 @@ function getFormData(form) {
                 brand: value("machine-brand"),
                 model: value("machine-model"),
                 serialNumber: value("machine-serial"),
-                image: value("machine-image"),
+
+                // El campo es de tipo archivo. No se debe guardar
+                // su ruta temporal como si fuera una imagen válida.
+                image: "",
+
                 connectionType: value("machine-connection-type", "unknown"),
                 connectionDetails: value("machine-connection-details"),
                 protocol: value("machine-protocol"),
@@ -525,7 +531,9 @@ async function copyDonationValue(inputId, description) {
         temporaryInput.remove();
 
         if (!copied) {
-            throw new Error("No se pudo copiar. Selecciona y copia el dato manualmente.");
+            throw new Error(
+                "No se pudo copiar. Selecciona y copia el dato manualmente."
+            );
         }
     }
 
@@ -640,10 +648,14 @@ async function handleClick(event) {
                 const secondId = value("comparison-record-b");
 
                 if (!firstId || !secondId) {
-                    throw new Error("Selecciona los dos conteos que deseas comparar.");
+                    throw new Error(
+                        "Selecciona los dos conteos que deseas comparar."
+                    );
                 }
 
-                renderComparisonResult(compareRecords(firstId, secondId));
+                renderComparisonResult(
+                    compareRecords(firstId, secondId)
+                );
                 break;
             }
 
@@ -808,11 +820,17 @@ async function handleClick(event) {
             }
 
             case "copy-donation-card":
-                await copyDonationValue("donation-card", "Número de tarjeta");
+                await copyDonationValue(
+                    "donation-card",
+                    "Número de tarjeta"
+                );
                 break;
 
             case "copy-donation-phone":
-                await copyDonationValue("donation-phone", "Número de teléfono");
+                await copyDonationValue(
+                    "donation-phone",
+                    "Número de teléfono"
+                );
                 break;
 
             case "open-nova-home":
