@@ -1,16 +1,9 @@
-// js/machines/connections.js
 
 import { getState, setState } from "../state.js";
 import {
     getMachineById,
     getActiveMachine
 } from "./registry.js";
-
-/*
- * No se presupone compatibilidad con ninguna máquina.
- * La conexión automática permanece desactivada hasta disponer
- * de un protocolo real, verificado y probado con el modelo exacto.
- */
 
 const connectionAttempts = new Map();
 
@@ -65,7 +58,7 @@ export function getConnectionStatus(machineId = null) {
     const attempt = connectionAttempts.get(machine.id);
 
     return {
-        connected: false,
+        connected: attempt?.status === "connected",
         status: attempt?.status ?? "not-verified",
         machineId: machine.id,
         machineName: machine.name,
@@ -98,7 +91,9 @@ export async function connectMachine(machineId = null) {
             message: validationError
         });
 
-        setState("machines.connectionStatus", "not-verified");
+        if (getState().machines.activeMachineId === machine.id) {
+            setState("machines.connectionStatus", "not-verified");
+        }
 
         return createResult(
             false,
@@ -108,16 +103,14 @@ export async function connectMachine(machineId = null) {
         );
     }
 
-    /*
-     * No se intenta abrir puertos, Bluetooth ni conexiones de red
-     * sin un controlador específico para el modelo real.
-     */
     connectionAttempts.set(machine.id, {
         status: "unsupported",
         message: "No hay un controlador probado para este modelo."
     });
 
-    setState("machines.connectionStatus", "unsupported");
+    if (getState().machines.activeMachineId === machine.id) {
+        setState("machines.connectionStatus", "unsupported");
+    }
 
     return createResult(
         false,
@@ -187,9 +180,17 @@ export function validateMachineProtocol(machineId) {
 
     const errors = [];
 
-    if (!machine.brand) errors.push("Falta la marca.");
-    if (!machine.model) errors.push("Falta el modelo exacto.");
-    if (!machine.protocol) errors.push("Falta el protocolo documentado.");
+    if (!machine.brand) {
+        errors.push("Falta la marca.");
+    }
+
+    if (!machine.model) {
+        errors.push("Falta el modelo exacto.");
+    }
+
+    if (!machine.protocol) {
+        errors.push("Falta el protocolo documentado.");
+    }
 
     if (!machine.protocolVerified) {
         errors.push("El protocolo no ha sido verificado mediante pruebas.");
@@ -201,12 +202,72 @@ export function validateMachineProtocol(machineId) {
     };
 }
 
-export function getConnectionCapabilities() {
-    return {
+export function getConnectionCapabilities(machineId = null) {
+    const baseCapabilities = {
         registryAvailable: true,
         connectionDriversAvailable: false,
         automaticCountingAvailable: false,
         supportedProtocols: [],
         note: "La conexión automática requiere identificar y probar cada modelo real."
     };
+
+    if (!machineId) {
+        return baseCapabilities;
+    }
+
+    const machine = getMachineById(machineId);
+
+    if (!machine) {
+        return [
+            "No se encontró la máquina registrada."
+        ];
+    }
+
+    const capabilities = [];
+
+    if (machine.connectionType) {
+        capabilities.push(
+            `Conexión registrada: ${machine.connectionType}.`
+        );
+    } else {
+        capabilities.push(
+            "Tipo de conexión pendiente de configurar."
+        );
+    }
+
+    if (machine.protocol) {
+        capabilities.push(
+            `Protocolo indicado: ${machine.protocol}.`
+        );
+    } else {
+        capabilities.push(
+            "Protocolo pendiente de identificar."
+        );
+    }
+
+    if (machine.protocolVerified === true) {
+        capabilities.push(
+            "Protocolo marcado como verificado."
+        );
+    } else {
+        capabilities.push(
+            "Protocolo todavía no verificado."
+        );
+    }
+
+    if (machine.automaticCountingEnabled === true) {
+        capabilities.push(
+            "Conteo automático habilitado en el registro."
+        );
+    } else {
+        capabilities.push(
+            "Conteo automático no habilitado."
+        );
+    }
+
+    capabilities.push(
+        "No existe todavía un controlador de conexión probado para este modelo."
+    );
+
+    return capabilities;
 }
