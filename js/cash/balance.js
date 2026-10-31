@@ -1,4 +1,3 @@
-// js/cash/balance.js
 
 import { getState } from "../state.js";
 import { listCashMovements } from "./movements.js";
@@ -17,6 +16,16 @@ function toCents(value) {
 
 function fromCents(cents) {
     return cents / 100;
+}
+
+function validateBalance(balance) {
+    if (!Number.isSafeInteger(balance)) {
+        throw new Error(
+            "El saldo de caja supera el límite numérico permitido."
+        );
+    }
+
+    return balance;
 }
 
 function getMovementEffectCents(movement) {
@@ -44,23 +53,17 @@ function getMovementTimestamp(movement) {
     return Number.isFinite(timestamp) ? timestamp : null;
 }
 
-function getOpeningBalance() {
-    return toCents(getState().cash?.openingBalance ?? 0);
-}
-
-function validateBalance(balance) {
-    if (!Number.isSafeInteger(balance)) {
-        throw new Error(
-            "El saldo de caja supera el límite numérico permitido."
-        );
-    }
-
-    return balance;
+function getOpeningBalanceCents() {
+    return toCents(
+        getState().cash?.openingBalance ?? 0
+    );
 }
 
 export function calculateCashBalance(options = {}) {
     const openingBalance = toCents(
-        options.openingBalance ?? getState().cash?.openingBalance ?? 0
+        options.openingBalance ??
+        getState().cash?.openingBalance ??
+        0
     );
 
     const movements = Array.isArray(options.movements)
@@ -81,7 +84,7 @@ export function getCashBalanceBreakdown() {
     const movements = listCashMovements();
 
     const summary = {
-        openingBalance: getOpeningBalance(),
+        openingBalance: getOpeningBalanceCents(),
         income: 0,
         expenses: 0,
         adjustments: 0,
@@ -104,9 +107,6 @@ export function getCashBalanceBreakdown() {
 
             case "adjustment":
                 summary.adjustments += amount;
-                break;
-
-            default:
                 break;
         }
     }
@@ -152,14 +152,18 @@ export function getCashBalanceAt(date) {
         );
     });
 
-    return calculateCashBalance({ movements });
+    return calculateCashBalance({
+        movements
+    });
 }
 
 export function verifyCashBalance() {
     const calculated = calculateCashBalance();
 
     const stored = fromCents(
-        toCents(getState().cash?.currentBalance ?? 0)
+        toCents(
+            getState().cash?.currentBalance ?? 0
+        )
     );
 
     return {
