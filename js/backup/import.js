@@ -10,8 +10,7 @@ import {
 } from "../storage.js";
 import { setState } from "../state.js";
 import {
-    loadCashMovementsIntoState,
-    getCashSummary
+    loadCashMovementsIntoState
 } from "../cash/movements.js";
 
 const MAX_FILE_BYTES = APP_CONFIG.limits.importedFileBytes;
@@ -41,20 +40,36 @@ function isValidMoney(value) {
 }
 
 function validateBackup(backup) {
-    if (!backup || typeof backup !== "object" || Array.isArray(backup)) {
-        throw new Error("El archivo no contiene un respaldo válido.");
+    if (
+        !backup ||
+        typeof backup !== "object" ||
+        Array.isArray(backup)
+    ) {
+        throw new Error(
+            "El archivo no contiene un respaldo válido."
+        );
     }
 
     if (backup.application !== APP_CONFIG.name) {
-        throw new Error("El archivo no pertenece a Contador-CUP.");
+        throw new Error(
+            "El archivo no pertenece a Contador-CUP."
+        );
     }
 
-    if (!backup.data || typeof backup.data !== "object" || Array.isArray(backup.data)) {
-        throw new Error("El respaldo no contiene datos válidos.");
+    if (
+        !backup.data ||
+        typeof backup.data !== "object" ||
+        Array.isArray(backup.data)
+    ) {
+        throw new Error(
+            "El respaldo no contiene datos válidos."
+        );
     }
 
     if (!ALLOWED_FORMATS.has(backup.format)) {
-        throw new Error("El formato del respaldo no es compatible.");
+        throw new Error(
+            "El formato del respaldo no es compatible."
+        );
     }
 
     if (
@@ -70,7 +85,9 @@ function validateBackup(backup) {
         );
     }
 
-    const allowedKeys = Object.values(APP_CONFIG.storage.keys);
+    const allowedKeys = Object.values(
+        APP_CONFIG.storage.keys
+    );
 
     for (const key of Object.keys(backup.data)) {
         if (!allowedKeys.includes(key)) {
@@ -84,12 +101,12 @@ function validateBackup(backup) {
 }
 
 function normalizeCashMovements(value) {
-    // Formato antiguo: el valor era directamente una lista.
+    // Formato antiguo: lista directa de movimientos.
     if (Array.isArray(value)) {
         return value;
     }
 
-    // Formato nuevo: objeto con saldo inicial y lista de movimientos.
+    // Formato nuevo: objeto con saldo inicial y movimientos.
     if (
         !value ||
         typeof value !== "object" ||
@@ -100,15 +117,14 @@ function normalizeCashMovements(value) {
         );
     }
 
-    const movements = value.movements;
-
-    if (!Array.isArray(movements)) {
+    if (!Array.isArray(value.movements)) {
         throw new Error(
             "La lista de movimientos de caja del respaldo no es válida."
         );
     }
 
-    const openingBalance = value.openingBalance ?? value.opening ?? 0;
+    const openingBalance =
+        value.openingBalance ?? value.opening ?? 0;
 
     if (!isValidMoney(openingBalance)) {
         throw new Error(
@@ -118,7 +134,7 @@ function normalizeCashMovements(value) {
 
     return {
         openingBalance: Number(openingBalance),
-        movements
+        movements: value.movements
     };
 }
 
@@ -133,7 +149,9 @@ function normalizeImportedData(backup) {
             Array.isArray(data.settings)
         )
     ) {
-        throw new Error("La configuración del respaldo no es válida.");
+        throw new Error(
+            "La configuración del respaldo no es válida."
+        );
     }
 
     if (
@@ -149,7 +167,9 @@ function normalizeImportedData(backup) {
         data.history !== undefined &&
         !Array.isArray(data.history)
     ) {
-        throw new Error("El historial del respaldo no es válido.");
+        throw new Error(
+            "El historial del respaldo no es válido."
+        );
     }
 
     if (
@@ -208,7 +228,8 @@ export function inspectBackupObject(backup) {
         valid: true,
         application: APP_CONFIG.fullName,
         version: backup.version ?? "desconocida",
-        schemaVersion: backup.schemaVersion ?? "no especificada",
+        schemaVersion:
+            backup.schemaVersion ?? "no especificada",
         exportedAt: backup.exportedAt ?? null,
         format: backup.format ?? "formato anterior",
         sections: Object.keys(data),
@@ -226,7 +247,9 @@ export function inspectBackupObject(backup) {
                 ? data.history.length
                 : 0,
 
-            cashMovements: getCashMovementCount(data.cashMovements),
+            cashMovements: getCashMovementCount(
+                data.cashMovements
+            ),
 
             machines: Array.isArray(data.machines)
                 ? data.machines.length
@@ -243,7 +266,9 @@ export async function readBackupFile(file) {
     }
 
     if (file.size <= 0) {
-        throw new Error("El archivo está vacío.");
+        throw new Error(
+            "El archivo está vacío."
+        );
     }
 
     if (file.size > MAX_FILE_BYTES) {
@@ -292,16 +317,25 @@ export function restoreBackup(backup, options = {}) {
 
     validateBackup(backup);
 
-    const normalizedBackup = normalizeImportedData(backup);
+    const normalizedBackup = normalizeImportedData(
+        backup
+    );
 
-    const result = importStorageData(normalizedBackup, {
-        overwrite
-    });
+    const result = importStorageData(
+        normalizedBackup,
+        { overwrite }
+    );
 
     const settings = readStorage("settings", null);
-    const denominations = readStorage("denominations", null);
+    const denominations = readStorage(
+        "denominations",
+        null
+    );
     const history = readStorage("history", []);
-    const cashMovements = readStorage("cashMovements", null);
+    const cashMovements = readStorage(
+        "cashMovements",
+        null
+    );
     const machines = readStorage("machines", []);
 
     if (
@@ -316,43 +350,30 @@ export function restoreBackup(backup, options = {}) {
     }
 
     if (Array.isArray(denominations)) {
-        setState("denominations", denominations);
+        setState(
+            "denominations",
+            denominations
+        );
     }
 
     if (Array.isArray(history)) {
-        setState("history.records", history);
+        setState(
+            "history.records",
+            history
+        );
     }
 
     if (cashMovements !== null) {
-        // Rehidrata saldo inicial, movimientos y saldo calculado
-        // desde el formato que acaba de importarse.
+        // El módulo normaliza los movimientos,
+        // recupera el saldo inicial y actualiza el saldo actual.
         loadCashMovementsIntoState();
-
-        const cashSummary = getCashSummary();
-
-        setState(
-            "cash.openingBalance",
-            cashSummary.openingBalance
-        );
-
-        setState(
-            "cash.movements",
-            cashSummary.movementCount >= 0
-                ? readStorage("cashMovements", null)?.movements ??
-                    readStorage("cashMovements", [])
-                : []
-        );
-
-        // La lista del estado se obtiene del módulo de caja para
-        // garantizar que contiene los movimientos normalizados.
-        setState(
-            "cash.currentBalance",
-            cashSummary.currentBalance
-        );
     }
 
     if (Array.isArray(machines)) {
-        setState("machines.registry", machines);
+        setState(
+            "machines.registry",
+            machines
+        );
     }
 
     setState(
@@ -368,7 +389,10 @@ export function restoreBackup(backup, options = {}) {
     };
 }
 
-export async function restoreBackupFile(file, options = {}) {
+export async function restoreBackupFile(
+    file,
+    options = {}
+) {
     const inspected = await readBackupFile(file);
 
     return {
@@ -381,7 +405,9 @@ export async function restoreBackupFile(file, options = {}) {
 export function createRestorePoint() {
     const snapshot = {};
 
-    for (const key of Object.values(APP_CONFIG.storage.keys)) {
+    for (
+        const key of Object.values(APP_CONFIG.storage.keys)
+    ) {
         snapshot[key] = readStorage(key, null);
     }
 
@@ -405,7 +431,10 @@ export function restoreRestorePoint(restorePoint) {
         );
     }
 
-    const allowedKeys = Object.values(APP_CONFIG.storage.keys);
+    const allowedKeys = Object.values(
+        APP_CONFIG.storage.keys
+    );
+
     const previousValues = {};
 
     for (const key of allowedKeys) {
@@ -416,7 +445,10 @@ export function restoreRestorePoint(restorePoint) {
         for (const key of allowedKeys) {
             const value = restorePoint.data[key];
 
-            if (value === null || value === undefined) {
+            if (
+                value === null ||
+                value === undefined
+            ) {
                 removeStorage(key);
                 continue;
             }
@@ -424,7 +456,9 @@ export function restoreRestorePoint(restorePoint) {
             writeStorage(key, value);
         }
 
-        if (restorePoint.data.cashMovements !== undefined) {
+        if (
+            restorePoint.data.cashMovements !== undefined
+        ) {
             loadCashMovementsIntoState();
         }
     } catch (error) {
@@ -436,7 +470,10 @@ export function restoreRestorePoint(restorePoint) {
                 ) {
                     removeStorage(key);
                 } else {
-                    writeStorage(key, previousValues[key]);
+                    writeStorage(
+                        key,
+                        previousValues[key]
+                    );
                 }
             } catch (rollbackError) {
                 console.error(
