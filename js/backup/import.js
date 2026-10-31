@@ -1,4 +1,3 @@
-
 // js/backup/import.js
 
 import { APP_CONFIG } from "../config.js";
@@ -101,6 +100,11 @@ function validateBackup(backup) {
 }
 
 function normalizeCashMovements(value) {
+    // Los respaldos pueden contener secciones vacías con valor null.
+    if (value === null) {
+        return null;
+    }
+
     // Formato antiguo: lista directa de movimientos.
     if (Array.isArray(value)) {
         return value;
@@ -143,8 +147,8 @@ function normalizeImportedData(backup) {
 
     if (
         data.settings !== undefined &&
+        data.settings !== null &&
         (
-            !data.settings ||
             typeof data.settings !== "object" ||
             Array.isArray(data.settings)
         )
@@ -156,6 +160,7 @@ function normalizeImportedData(backup) {
 
     if (
         data.denominations !== undefined &&
+        data.denominations !== null &&
         !Array.isArray(data.denominations)
     ) {
         throw new Error(
@@ -165,6 +170,7 @@ function normalizeImportedData(backup) {
 
     if (
         data.history !== undefined &&
+        data.history !== null &&
         !Array.isArray(data.history)
     ) {
         throw new Error(
@@ -174,6 +180,7 @@ function normalizeImportedData(backup) {
 
     if (
         data.drafts !== undefined &&
+        data.drafts !== null &&
         !Array.isArray(data.drafts)
     ) {
         throw new Error(
@@ -189,6 +196,7 @@ function normalizeImportedData(backup) {
 
     if (
         data.machines !== undefined &&
+        data.machines !== null &&
         !Array.isArray(data.machines)
     ) {
         throw new Error(
