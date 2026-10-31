@@ -1,3 +1,4 @@
+
 {
   "id": "./",
   "name": "Contador de Efectivo CUP",
@@ -19,7 +20,7 @@
   "prefer_related_applications": false,
   "icons": [
     {
-      "src": "./icon.svg",
+      "src": "./assets/icons/icon.svg",
       "sizes": "any",
       "type": "image/svg+xml",
       "purpose": "any"
