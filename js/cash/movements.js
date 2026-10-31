@@ -28,6 +28,26 @@ function normalizeAmount(value, allowZero = false) {
     return roundMoney(amount);
 }
 
+function getValidOpeningBalance(...values) {
+    for (const value of values) {
+        if (value === undefined || value === null || value === "") {
+            continue;
+        }
+
+        const amount = Number(value);
+
+        if (
+            Number.isFinite(amount) &&
+            amount >= 0 &&
+            amount <= MAX_AMOUNT
+        ) {
+            return roundMoney(amount);
+        }
+    }
+
+    return 0;
+}
+
 function generateMovementId() {
     if (globalThis.crypto?.randomUUID) {
         return globalThis.crypto.randomUUID();
@@ -234,9 +254,9 @@ function readLegacyState() {
         }
 
         return {
-            openingBalance: normalizeAmount(
-                parsed.opening ?? 0,
-                true
+            openingBalance: getValidOpeningBalance(
+                parsed.opening,
+                parsed.openingBalance
             ),
             movements: normalizeMovementList(parsed.movements)
         };
@@ -247,33 +267,53 @@ function readLegacyState() {
 
 /**
  * Carga los movimientos desde el almacenamiento general.
- * También migra los datos del formato antiguo.
+ * Admite el formato nuevo y los respaldos antiguos en forma de array.
  */
 export function loadCashMovementsIntoState() {
     const saved = readStorage(STORAGE_KEY, null);
+    const currentCash = getState().cash || {};
+    const settings = readStorage("settings", {});
 
     let openingBalance = 0;
     let movements = [];
 
-    if (saved && typeof saved === "object") {
-        openingBalance = normalizeAmount(
-            saved.openingBalance ?? saved.opening ?? 0,
-            true
-        );
+    if (Array.isArray(saved)) {
+        // Formato antiguo: cashMovements era directamente una lista.
+        movements = normalizeMovementList(saved);
 
+        openingBalance = getValidOpeningBalance(
+            settings?.openingBalance,
+            currentCash.openingBalance
+        );
+    } else if (
+        saved &&
+        typeof saved === "object" &&
+        Array.isArray(saved.movements)
+    ) {
+        // Formato nuevo: objeto con saldo inicial y movimientos.
         movements = normalizeMovementList(saved.movements);
+
+        openingBalance = getValidOpeningBalance(
+            saved.openingBalance,
+            saved.opening,
+            settings?.openingBalance,
+            currentCash.openingBalance
+        );
     } else {
         const legacy = readLegacyState();
 
         if (legacy) {
-            openingBalance = legacy.openingBalance;
+            openingBalance = getValidOpeningBalance(
+                legacy.openingBalance,
+                settings?.openingBalance,
+                currentCash.openingBalance
+            );
+
             movements = legacy.movements;
         } else {
-            const currentCash = getState().cash || {};
-
-            openingBalance = normalizeAmount(
-                currentCash.openingBalance ?? 0,
-                true
+            openingBalance = getValidOpeningBalance(
+                settings?.openingBalance,
+                currentCash.openingBalance
             );
 
             movements = normalizeMovementList(
