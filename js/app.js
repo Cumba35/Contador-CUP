@@ -1,4 +1,6 @@
 
+// js/app.js
+
 import { APP_CONFIG } from "./config.js";
 import { getState, setState, markAppInitialized, setAppError, clearAppError } from "./state.js";
 import { readStorage, writeStorage, checkStorageAvailability } from "./storage.js";
@@ -843,20 +845,53 @@ async function handleClick(event) {
     });
 }
 
+/**
+ * Recupera el saldo inicial sin sobrescribir el valor guardado
+ * en el formato nuevo de cashMovements.
+ */
 function loadOpeningBalance() {
     const savedSettings = readStorage("settings", {});
-    const amount = Number(savedSettings?.openingBalance ?? 0);
+    const savedCash = readStorage("cashMovements", null);
 
-    if (Number.isSafeInteger(amount) && amount >= 0) {
-        setOpeningBalance(amount);
+    const isValidAmount = value => {
+        if (value === undefined || value === null || value === "") {
+            return false;
+        }
+
+        const amount = Number(value);
+
+        return (
+            Number.isFinite(amount) &&
+            amount >= 0 &&
+            amount <= 999999999999.99
+        );
+    };
+
+    let amount;
+
+    // El objeto nuevo de caja tiene prioridad sobre settings.
+    if (
+        savedCash &&
+        !Array.isArray(savedCash) &&
+        typeof savedCash === "object" &&
+        isValidAmount(savedCash.openingBalance)
+    ) {
+        amount = Number(savedCash.openingBalance);
+    } else if (isValidAmount(savedSettings?.openingBalance)) {
+        // Compatibilidad con respaldos antiguos.
+        amount = Number(savedSettings.openingBalance);
+    } else if (isValidAmount(getState().cash?.openingBalance)) {
+        amount = Number(getState().cash.openingBalance);
     } else {
-        setOpeningBalance(0);
+        amount = 0;
     }
 
-    if (el("opening-balance-input")) {
-        el("opening-balance-input").value = String(
-            getState().cash.openingBalance
-        );
+    setOpeningBalance(amount);
+
+    const input = el("opening-balance-input");
+
+    if (input) {
+        input.value = String(getState().cash.openingBalance);
     }
 }
 
