@@ -1,4 +1,3 @@
-
 // js/app.js
 
 import { APP_CONFIG } from "./config.js";
@@ -74,12 +73,18 @@ import {
 
 import {
     listMachines,
+    getMachineById,
     registerMachine,
     removeMachine,
     setActiveMachine,
     loadMachinesIntoState,
     MACHINE_TYPES
 } from "./machines/registry.js";
+
+import {
+    saveMachineImage,
+    deleteMachineImage
+} from "./machines/image-storage.js";
 
 import {
     connectMachine,
@@ -394,11 +399,7 @@ function getFormData(form) {
                 brand: value("machine-brand"),
                 model: value("machine-model"),
                 serialNumber: value("machine-serial"),
-
-                // El campo es de tipo archivo. No se debe guardar
-                // su ruta temporal como si fuera una imagen válida.
                 image: "",
-
                 connectionType: value("machine-connection-type", "unknown"),
                 connectionDetails: value("machine-connection-details"),
                 protocol: value("machine-protocol"),
@@ -478,13 +479,41 @@ async function handleFormSubmit(event) {
                 notify("Movimiento registrado.", "success");
                 break;
 
-            case "register-machine":
-                registerMachine(data);
-                persistMachineRegistry();
-                renderMachines();
-                form.reset();
-                notify("Máquina registrada.", "success");
+            case "register-machine": {
+                const imageFile = el("machine-image")?.files?.[0];
+                let savedImageId = null;
+
+                try {
+                    if (imageFile) {
+                        savedImageId = await saveMachineImage(imageFile);
+                        data.image = savedImageId;
+                    }
+
+                    registerMachine(data);
+                    savedImageId = null;
+
+                    persistMachineRegistry();
+                    renderMachines();
+                    form.reset();
+
+                    notify("Máquina registrada.", "success");
+                } catch (error) {
+                    if (savedImageId) {
+                        try {
+                            await deleteMachineImage(savedImageId);
+                        } catch (cleanupError) {
+                            console.error(
+                                "No se pudo eliminar una imagen temporal:",
+                                cleanupError
+                            );
+                        }
+                    }
+
+                    throw error;
+                }
+
                 break;
+            }
 
             case "add-denomination":
                 createDenomination(data);
@@ -727,10 +756,26 @@ async function handleClick(event) {
 
             case "delete-machine":
                 if (confirmAction("¿Quieres eliminar esta máquina del registro?")) {
-                    removeMachine(id);
-                    persistMachineRegistry();
-                    renderMachines();
-                    notify("Máquina eliminada.", "success");
+                    const machine = getMachineById(id);
+                    const removed = removeMachine(id);
+
+                    if (removed) {
+                        persistMachineRegistry();
+
+                        if (machine?.image) {
+                            try {
+                                await deleteMachineImage(machine.image);
+                            } catch (error) {
+                                console.error(
+                                    "No se pudo eliminar la imagen de la máquina:",
+                                    error
+                                );
+                            }
+                        }
+
+                        renderMachines();
+                        notify("Máquina eliminada.", "success");
+                    }
                 }
                 break;
 
