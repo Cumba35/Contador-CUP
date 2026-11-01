@@ -1,4 +1,3 @@
-
 // js/cash/movements.js
 
 import { getState, setState } from "../state.js";
@@ -165,7 +164,16 @@ function getCashState() {
     };
 }
 
-function persistCashState(cash) {
+/**
+ * Actualiza el estado de caja y guarda los datos.
+ *
+ * Durante la carga inicial permite continuar si el almacenamiento
+ * local no está disponible. En las operaciones normales, los errores
+ * de almacenamiento siguen notificándose.
+ */
+function persistCashState(cash, options = {}) {
+    const { allowStorageFailure = false } = options;
+
     const normalized = {
         openingBalance: normalizeAmount(
             cash.openingBalance ?? 0,
@@ -184,10 +192,21 @@ function persistCashState(cash) {
 
     setState("cash.currentBalance", currentBalance);
 
-    writeStorage(STORAGE_KEY, {
-        openingBalance: normalized.openingBalance,
-        movements: normalized.movements
-    });
+    try {
+        writeStorage(STORAGE_KEY, {
+            openingBalance: normalized.openingBalance,
+            movements: normalized.movements
+        });
+    } catch (error) {
+        if (!allowStorageFailure) {
+            throw error;
+        }
+
+        console.warn(
+            "No se pudieron guardar los movimientos durante la carga inicial. La aplicación continuará utilizando los datos en memoria.",
+            error
+        );
+    }
 
     globalThis.dispatchEvent?.(
         new CustomEvent("cash:updated", {
@@ -322,10 +341,15 @@ export function loadCashMovementsIntoState() {
         }
     }
 
-    const cash = persistCashState({
-        openingBalance,
-        movements
-    });
+    const cash = persistCashState(
+        {
+            openingBalance,
+            movements
+        },
+        {
+            allowStorageFailure: true
+        }
+    );
 
     return {
         openingBalance: cash.openingBalance,
