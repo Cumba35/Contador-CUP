@@ -3,7 +3,7 @@
 import { APP_CONFIG } from "../config.js";
 import { getState, setState } from "../state.js";
 import { readStorage, writeStorage } from "../storage.js";
-import { generateId } from "../utils.js";
+import { generateId, deepClone } from "../utils.js";
 import { getCounterSummary } from "../counter/calculator.js";
 
 const STORAGE_KEY = "history";
@@ -55,13 +55,13 @@ function normalizeQuantities(quantities) {
 
 export function listRecords() {
     return getRecords()
-        .map(record => structuredClone(record))
+        .map(record => deepClone(record))
         .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 }
 
 export function getRecordById(id) {
     const record = getRecords().find(item => item.id === id);
-    return record ? structuredClone(record) : null;
+    return record ? deepClone(record) : null;
 }
 
 export function saveCurrentCount(options = {}) {
@@ -97,7 +97,7 @@ export function saveCurrentCount(options = {}) {
 
     setState("counter.isDirty", false);
 
-    return structuredClone(record);
+    return deepClone(record);
 }
 
 export function updateRecord(id, changes = {}) {
@@ -133,7 +133,7 @@ export function updateRecord(id, changes = {}) {
 
     saveRecords(records.map(item => item.id === id ? updated : item));
 
-    return structuredClone(updated);
+    return deepClone(updated);
 }
 
 export function deleteRecord(id) {
@@ -217,7 +217,7 @@ export function getHistoryStatistics() {
         totalAmount: records.reduce((sum, record) => sum + Number(record.total || 0), 0),
         totalBills: records.reduce((sum, record) => sum + Number(record.totalBills || 0), 0),
         latestRecord: records.length
-            ? structuredClone(
+            ? deepClone(
                 records.reduce((latest, record) =>
                     new Date(record.createdAt) > new Date(latest.createdAt)
                         ? record
