@@ -19,6 +19,7 @@ export const MACHINE_CONNECTION_TYPES = Object.freeze({
     SERIAL: "serial",
     BLUETOOTH: "bluetooth",
     NETWORK: "network",
+    WIFI: "wifi",
     OTHER: "other",
     UNKNOWN: "unknown"
 });
@@ -98,6 +99,9 @@ function normalizeMachine(machine) {
         connectionType: machine.connectionType ??
             MACHINE_CONNECTION_TYPES.UNKNOWN,
         connectionDetails: String(machine.connectionDetails ?? ""),
+        connectionCapabilities: String(
+            machine.connectionCapabilities ?? ""
+        ),
         protocol: String(machine.protocol ?? ""),
         protocolVerified: machine.protocolVerified === true,
         automaticCountingEnabled:
@@ -238,6 +242,12 @@ export function registerMachine(data = {}) {
             1000,
             false
         ),
+        connectionCapabilities: validateText(
+            data.connectionCapabilities,
+            "Las capacidades de conexión",
+            1000,
+            false
+        ),
         protocol: validateText(
             data.protocol,
             "El protocolo",
@@ -369,6 +379,15 @@ export function updateMachine(id, changes = {}) {
         updated.connectionDetails = validateText(
             changes.connectionDetails,
             "Los detalles de conexión",
+            1000,
+            false
+        );
+    }
+
+    if (changes.connectionCapabilities !== undefined) {
+        updated.connectionCapabilities = validateText(
+            changes.connectionCapabilities,
+            "Las capacidades de conexión",
             1000,
             false
         );
