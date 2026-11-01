@@ -31,7 +31,9 @@ function validateText(value, field, maximum = 120, required = true) {
     }
 
     if (text.length > maximum) {
-        throw new Error(`${field} no puede superar los ${maximum} caracteres.`);
+        throw new Error(
+            `${field} no puede superar los ${maximum} caracteres.`
+        );
     }
 
     return text;
@@ -82,7 +84,7 @@ function validateOptionalImage(value) {
 
 function normalizeMachine(machine) {
     return {
-        id: String(machine.id),
+        id: String(machine.id ?? ""),
         name: String(machine.name ?? ""),
         type: machine.type,
         brand: String(machine.brand ?? ""),
@@ -93,26 +95,52 @@ function normalizeMachine(machine) {
         features: Array.isArray(machine.features)
             ? machine.features.map(String)
             : [],
-        connectionType: machine.connectionType,
+        connectionType: machine.connectionType ??
+            MACHINE_CONNECTION_TYPES.UNKNOWN,
         connectionDetails: String(machine.connectionDetails ?? ""),
         protocol: String(machine.protocol ?? ""),
         protocolVerified: machine.protocolVerified === true,
-        automaticCountingEnabled: false,
-        connectionStatus: "not-verified",
-        createdAt: machine.createdAt,
-        updatedAt: machine.updatedAt
+        automaticCountingEnabled:
+            machine.automaticCountingEnabled === true,
+        connectionStatus: String(
+            machine.connectionStatus ?? "not-verified"
+        ),
+        createdAt: machine.createdAt ?? null,
+        updatedAt: machine.updatedAt ?? null
     };
 }
 
 function getMachines() {
     const machines = readStorage(STORAGE_KEY, []);
-    return Array.isArray(machines) ? machines : [];
+
+    if (!Array.isArray(machines)) {
+        return [];
+    }
+
+    return machines.filter(machine =>
+        machine &&
+        typeof machine === "object" &&
+        !Array.isArray(machine) &&
+        typeof machine.id === "string" &&
+        machine.id.trim()
+    );
 }
 
 function saveMachines(machines) {
-    writeStorage(STORAGE_KEY, machines);
-    setState("machines.registry", machines.map(normalizeMachine));
-    return machines;
+    if (!Array.isArray(machines)) {
+        throw new TypeError("El registro de máquinas no es válido.");
+    }
+
+    const normalized = machines.map(normalizeMachine);
+
+    writeStorage(STORAGE_KEY, normalized);
+
+    setState(
+        "machines.registry",
+        deepClone(normalized)
+    );
+
+    return normalized;
 }
 
 function findMachine(id) {
@@ -126,6 +154,10 @@ export function listMachines() {
 }
 
 export function getMachineById(id) {
+    if (!id) {
+        return null;
+    }
+
     const machine = findMachine(id);
 
     return machine
@@ -138,9 +170,25 @@ export function registerMachine(data = {}) {
         throw new TypeError("Los datos de la máquina no son válidos.");
     }
 
-    const type = validateChoice(data.type, MACHINE_TYPES, "tipo de máquina");
-    const brand = validateText(data.brand, "La marca", 100, false);
-    const model = validateText(data.model, "El modelo", 100, false);
+    const type = validateChoice(
+        data.type,
+        MACHINE_TYPES,
+        "tipo de máquina"
+    );
+
+    const brand = validateText(
+        data.brand,
+        "La marca",
+        100,
+        false
+    );
+
+    const model = validateText(
+        data.model,
+        "El modelo",
+        100,
+        false
+    );
 
     const connectionType = validateChoice(
         data.connectionType ?? MACHINE_CONNECTION_TYPES.UNKNOWN,
@@ -203,7 +251,10 @@ export function registerMachine(data = {}) {
         updatedAt: now
     };
 
-    saveMachines([...getMachines(), machine]);
+    saveMachines([
+        ...getMachines(),
+        machine
+    ]);
 
     return deepClone(normalizeMachine(machine));
 }
@@ -214,16 +265,25 @@ export function updateMachine(id, changes = {}) {
     }
 
     const machines = getMachines();
-    const existing = machines.find(machine => machine.id === id);
+
+    const existing = machines.find(
+        machine => machine.id === id
+    );
 
     if (!existing) {
         throw new Error("No se encontró la máquina registrada.");
     }
 
-    const updated = { ...existing };
+    const updated = {
+        ...existing
+    };
 
     if (changes.name !== undefined) {
-        updated.name = validateText(changes.name, "El nombre", 150);
+        updated.name = validateText(
+            changes.name,
+            "El nombre",
+            150
+        );
     }
 
     if (changes.type !== undefined) {
@@ -276,7 +336,9 @@ export function updateMachine(id, changes = {}) {
 
     if (changes.features !== undefined) {
         if (!Array.isArray(changes.features)) {
-            throw new TypeError("Las características deben ser una lista.");
+            throw new TypeError(
+                "Las características deben ser una lista."
+            );
         }
 
         updated.features = [...new Set(
@@ -287,16 +349,20 @@ export function updateMachine(id, changes = {}) {
         )].slice(0, 50);
     }
 
+    let connectionConfigurationChanged = false;
+
     if (changes.connectionType !== undefined) {
-        updated.connectionType = validateChoice(
+        const nextType = validateChoice(
             changes.connectionType,
             MACHINE_CONNECTION_TYPES,
             "tipo de conexión"
         );
 
-        updated.protocolVerified = false;
-        updated.automaticCountingEnabled = false;
-        updated.connectionStatus = "not-verified";
+        if (nextType !== updated.connectionType) {
+            connectionConfigurationChanged = true;
+        }
+
+        updated.connectionType = nextType;
     }
 
     if (changes.connectionDetails !== undefined) {
@@ -309,25 +375,34 @@ export function updateMachine(id, changes = {}) {
     }
 
     if (changes.protocol !== undefined) {
-        updated.protocol = validateText(
+        const nextProtocol = validateText(
             changes.protocol,
             "El protocolo",
             200,
             false
         );
 
+        if (nextProtocol !== updated.protocol) {
+            connectionConfigurationChanged = true;
+        }
+
+        updated.protocol = nextProtocol;
+    }
+
+    if (connectionConfigurationChanged) {
         updated.protocolVerified = false;
         updated.automaticCountingEnabled = false;
         updated.connectionStatus = "not-verified";
     }
 
-    updated.protocolVerified = false;
-    updated.automaticCountingEnabled = false;
-    updated.connectionStatus = "not-verified";
     updated.updatedAt = new Date().toISOString();
 
     saveMachines(
-        machines.map(machine => machine.id === id ? updated : machine)
+        machines.map(machine =>
+            machine.id === id
+                ? updated
+                : machine
+        )
     );
 
     return deepClone(normalizeMachine(updated));
@@ -335,13 +410,18 @@ export function updateMachine(id, changes = {}) {
 
 export function removeMachine(id) {
     const machines = getMachines();
-    const exists = machines.some(machine => machine.id === id);
+
+    const exists = machines.some(
+        machine => machine.id === id
+    );
 
     if (!exists) {
         return false;
     }
 
-    saveMachines(machines.filter(machine => machine.id !== id));
+    saveMachines(
+        machines.filter(machine => machine.id !== id)
+    );
 
     if (getState().machines.activeMachineId === id) {
         setState("machines.activeMachineId", null);
@@ -367,13 +447,18 @@ export function setActiveMachine(id) {
 export function getActiveMachine() {
     const id = getState().machines.activeMachineId;
 
-    return id ? getMachineById(id) : null;
+    return id
+        ? getMachineById(id)
+        : null;
 }
 
 export function loadMachinesIntoState() {
     const machines = getMachines().map(normalizeMachine);
 
-    setState("machines.registry", machines);
+    setState(
+        "machines.registry",
+        deepClone(machines)
+    );
 
     return machines.length;
 }
@@ -383,21 +468,27 @@ export function getMachineRegistrySummary() {
 
     return {
         total: machines.length,
+
         billCounters: machines.filter(
             item => item.type === MACHINE_TYPES.BILL_COUNTER
         ).length,
+
         counterfeitDetectors: machines.filter(
             item => item.type === MACHINE_TYPES.COUNTERFEIT_DETECTOR
         ).length,
+
         billSorters: machines.filter(
             item => item.type === MACHINE_TYPES.BILL_SORTER
         ).length,
+
         otherMachines: machines.filter(
             item => item.type === MACHINE_TYPES.OTHER
         ).length,
+
         verifiedProtocols: machines.filter(
             item => item.protocolVerified
         ).length,
+
         automaticCountingReady: machines.filter(
             item => item.automaticCountingEnabled
         ).length
