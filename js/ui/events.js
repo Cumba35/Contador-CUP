@@ -1,9 +1,13 @@
+// js/ui/events.js
+
 export function initializeUIEvents({
     onClick,
     onInput,
     onChange,
     onSubmit
 }) {
+    let submitHandler = null;
+
     if (typeof onClick === "function") {
         document.addEventListener("click", onClick);
     }
@@ -17,10 +21,12 @@ export function initializeUIEvents({
     }
 
     if (typeof onSubmit === "function") {
-        document.addEventListener("submit", event => {
+        submitHandler = event => {
             event.preventDefault();
             onSubmit(event);
-        });
+        };
+
+        document.addEventListener("submit", submitHandler);
     }
 
     return function removeUIEvents() {
@@ -34,6 +40,11 @@ export function initializeUIEvents({
 
         if (typeof onChange === "function") {
             document.removeEventListener("change", onChange);
+        }
+
+        if (submitHandler) {
+            document.removeEventListener("submit", submitHandler);
+            submitHandler = null;
         }
     };
 }
