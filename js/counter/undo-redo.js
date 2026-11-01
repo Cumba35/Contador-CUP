@@ -2,6 +2,7 @@
 
 import { APP_CONFIG } from "../config.js";
 import { getState, setState } from "../state.js";
+import { deepClone } from "../utils.js";
 import {
     getCounterQuantities,
     loadCounterQuantities
@@ -30,7 +31,7 @@ function snapshotsEqual(a, b) {
 }
 
 function pushBounded(stack, value) {
-    stack.push(structuredClone(value));
+    stack.push(deepClone(value));
 
     if (stack.length > MAX_HISTORY) {
         stack.shift();
