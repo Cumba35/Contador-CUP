@@ -1,9 +1,10 @@
 // js/state.js
 
 import { APP_CONFIG } from "./config.js";
+import { deepClone } from "./utils.js";
 
 function cloneData(value) {
-    return structuredClone(value);
+    return deepClone(value);
 }
 
 function createInitialState() {
@@ -143,6 +144,7 @@ export function setState(path, value) {
     }
 
     const previousValue = getNestedValue(state, path);
+
     const nextValue = typeof value === "function"
         ? value(previousValue)
         : value;
