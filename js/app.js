@@ -349,10 +349,6 @@ function handleInput(event) {
 function handleChange(event) {
     const target = event.target;
 
-    if (target.matches('[data-action="quantity"]')) {
-        updateQuantityInput(target);
-    }
-
     if (
         target.id === "report-start-date" ||
         target.id === "report-end-date"
