@@ -1,9 +1,8 @@
-
 // js/machines/registry.js
 
 import { getState, setState } from "../state.js";
 import { readStorage, writeStorage } from "../storage.js";
-import { generateId } from "../utils.js";
+import { generateId, deepClone } from "../utils.js";
 
 const STORAGE_KEY = "machines";
 
@@ -122,7 +121,7 @@ function findMachine(id) {
 
 export function listMachines() {
     return getMachines().map(machine =>
-        structuredClone(normalizeMachine(machine))
+        deepClone(normalizeMachine(machine))
     );
 }
 
@@ -130,7 +129,7 @@ export function getMachineById(id) {
     const machine = findMachine(id);
 
     return machine
-        ? structuredClone(normalizeMachine(machine))
+        ? deepClone(normalizeMachine(machine))
         : null;
 }
 
@@ -206,7 +205,7 @@ export function registerMachine(data = {}) {
 
     saveMachines([...getMachines(), machine]);
 
-    return structuredClone(normalizeMachine(machine));
+    return deepClone(normalizeMachine(machine));
 }
 
 export function updateMachine(id, changes = {}) {
@@ -331,7 +330,7 @@ export function updateMachine(id, changes = {}) {
         machines.map(machine => machine.id === id ? updated : machine)
     );
 
-    return structuredClone(normalizeMachine(updated));
+    return deepClone(normalizeMachine(updated));
 }
 
 export function removeMachine(id) {
@@ -362,7 +361,7 @@ export function setActiveMachine(id) {
     setState("machines.activeMachineId", id);
     setState("machines.connectionStatus", "disconnected");
 
-    return structuredClone(normalizeMachine(machine));
+    return deepClone(normalizeMachine(machine));
 }
 
 export function getActiveMachine() {
