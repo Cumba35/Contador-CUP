@@ -151,7 +151,15 @@ import { renderDenominationSettings } from "./ui/render-settings.js";
 let initialized = false;
 let removeUIEvents = null;
 
+/**
+ * Guarda el conteo actual únicamente cuando autoSave
+ * está activado.
+ */
 function persistCurrentCount() {
+    if (getState().settings?.autoSave !== true) {
+        return false;
+    }
+
     const counter = getState().counter;
 
     writeStorage("currentCount", {
@@ -161,6 +169,8 @@ function persistCurrentCount() {
         draftName: counter.draftName,
         savedAt: new Date().toISOString()
     });
+
+    return true;
 }
 
 function restoreCurrentCount() {
@@ -519,11 +529,21 @@ async function handleFormSubmit(event) {
                 notify("Denominación añadida.", "success");
                 break;
 
-            case "save-settings":
+            case "save-settings": {
+                const wasAutoSaveEnabled = getState().settings.autoSave;
+
                 savePreferences(data);
+
+                // Al activar autoSave, guardar inmediatamente
+                // el conteo actual para iniciar la persistencia.
+                if (!wasAutoSaveEnabled && data.autoSave) {
+                    persistCurrentCount();
+                }
+
                 applySavedTheme();
                 notify("Configuración guardada.", "success");
                 break;
+            }
 
             default:
                 throw new Error("Acción de formulario desconocida.");
