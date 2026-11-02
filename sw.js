@@ -3,13 +3,12 @@
 
 "use strict";
 
-const CACHE_NAME = "contador-cup-v2.0.2";
+const CACHE_NAME = "contador-cup-v2.0.3";
 
 const APP_SHELL = [
     "./",
     "./index.html",
     "./manifest.webmanifest",
-    "./assets/icons/icon.svg",
 
     // Estilos
     "./assets/css/variables.css",
