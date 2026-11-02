@@ -1,3 +1,4 @@
+
 # Contador de Efectivo CUP
 
 Aplicación de Nova Apps para contar, registrar y administrar efectivo en pesos cubanos (CUP).
@@ -39,8 +40,14 @@ Contador-CUP/
 ├── index.html
 ├── manifest.webmanifest
 ├── sw.js
-├── icon.svg
+├── icon.png
 ├── assets/
+│   ├── icons/
+│   │   ├── icon.png
+│   │   ├── icon-192.png
+│   │   ├── icon-512.png
+│   │   ├── icon-maskable-192.png
+│   │   └── icon-maskable-512.png
 │   └── css/
 │       ├── variables.css
 │       ├── base.css
@@ -63,3 +70,31 @@ Contador-CUP/
 │   └── settings/
 └── docs/
     └── MANUAL.md
+```
+
+Los iconos del proyecto utilizarán exclusivamente el formato PNG.
+
+## 4. Instalación
+
+1. Publica el proyecto en un servidor compatible con HTTPS.
+2. Abre la dirección de la aplicación desde el navegador.
+3. Espera a que termine la primera carga.
+4. Utiliza la opción de instalar o añadir a la pantalla de inicio cuando esté disponible.
+
+## 5. Funcionamiento sin conexión
+
+La aplicación utiliza un service worker para almacenar los recursos necesarios y permitir su funcionamiento sin conexión después de una primera carga correcta.
+
+Las funciones que dependan de servicios externos o conexiones con otros dispositivos pueden requerir Internet o permisos adicionales del navegador.
+
+## 6. Almacenamiento y seguridad
+
+Los datos locales se guardan en el almacenamiento del navegador. Se recomienda realizar copias de seguridad periódicas desde las opciones de la aplicación.
+
+Borrar los datos del navegador puede eliminar información que no tenga una copia de seguridad.
+
+## 7. Iconos
+
+Todos los iconos e imágenes de la aplicación deben estar en formato PNG. No se deben incorporar archivos SVG ni referencias a ese formato en el código, el manifiesto o la documentación.
+
+Los archivos PNG deben conservar el diseño original de los iconos del proyecto.
