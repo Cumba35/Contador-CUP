@@ -16,10 +16,24 @@ import {
     loadCashMovementsIntoState
 } from "../cash/movements.js";
 
+import {
+    exportMachineImages,
+    replaceMachineImages
+} from "../machines/image-storage.js";
+
 const MAX_FILE_BYTES =
     APP_CONFIG.limits.importedFileBytes;
 
 const MAX_CASH_AMOUNT = 999999999999.99;
+const MAX_IMAGE_SIZE = 5 * 1024 * 1024;
+const MAX_BACKUP_IMAGES_SIZE = 12 * 1024 * 1024;
+
+const ALLOWED_IMAGE_TYPES = new Set([
+    "image/jpeg",
+    "image/png",
+    "image/webp",
+    "image/gif"
+]);
 
 const ALLOWED_FORMATS = new Set([
     "contador-cup-backup",
@@ -62,6 +76,123 @@ function validateMoney(value, message) {
     }
 
     return Number(value);
+}
+
+function getBase64Size(base64) {
+    if (typeof base64 !== "string" || !base64.length) {
+        return 0;
+    }
+
+    const padding = base64.endsWith("==")
+        ? 2
+        : base64.endsWith("=")
+            ? 1
+            : 0;
+
+    return Math.floor(base64.length * 3 / 4) - padding;
+}
+
+function validateMachineImages(images) {
+    if (!Array.isArray(images)) {
+        throw new Error(
+            "La lista de imágenes del respaldo no es válida."
+        );
+    }
+
+    const ids = new Set();
+    let totalSize = 0;
+
+    for (let index = 0; index < images.length; index++) {
+        const image = images[index];
+
+        if (
+            !isPlainObject(image) ||
+            typeof image.id !== "string" ||
+            !image.id.trim() ||
+            image.id.length > 200 ||
+            !ALLOWED_IMAGE_TYPES.has(image.type) ||
+            typeof image.dataURL !== "string"
+        ) {
+            throw new Error(
+                `La imagen de máquina ${index + 1} contiene datos inválidos.`
+            );
+        }
+
+        if (ids.has(image.id)) {
+            throw new Error(
+                "El respaldo contiene identificadores de imagen duplicados."
+            );
+        }
+
+        ids.add(image.id);
+
+        const escapedType = image.type.replace("/", "\\/");
+        const expression = new RegExp(
+            `^data:${escapedType};base64,([A-Za-z0-9+/]*={0,2})$`
+        );
+
+        const match = image.dataURL.match(expression);
+
+        if (!match || !match[1].length) {
+            throw new Error(
+                `Los datos de la imagen ${index + 1} no tienen un formato válido.`
+            );
+        }
+
+        const base64 = match[1];
+
+        if (
+            base64.length % 4 !== 0 ||
+            !/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(base64)
+        ) {
+            throw new Error(
+                `Los datos de la imagen ${index + 1} están dañados.`
+            );
+        }
+
+        const size = getBase64Size(base64);
+
+        if (
+            !Number.isSafeInteger(size) ||
+            size <= 0 ||
+            size > MAX_IMAGE_SIZE
+        ) {
+            throw new Error(
+                `La imagen ${index + 1} supera el tamaño permitido de 5 MB o está vacía.`
+            );
+        }
+
+        if (
+            image.size !== undefined &&
+            (
+                !Number.isSafeInteger(Number(image.size)) ||
+                Number(image.size) !== size
+            )
+        ) {
+            throw new Error(
+                `El tamaño declarado de la imagen ${index + 1} no coincide con sus datos.`
+            );
+        }
+
+        if (
+            image.name !== undefined &&
+            typeof image.name !== "string"
+        ) {
+            throw new Error(
+                `El nombre de la imagen ${index + 1} no es válido.`
+            );
+        }
+
+        totalSize += size;
+
+        if (totalSize > MAX_BACKUP_IMAGES_SIZE) {
+            throw new Error(
+                "Las imágenes superan el límite total permitido de 12 MB."
+            );
+        }
+    }
+
+    return images;
 }
 
 function validateBackup(backup) {
@@ -109,6 +240,10 @@ function validateBackup(backup) {
                 `El respaldo contiene una sección desconocida: ${key}`
             );
         }
+    }
+
+    if (Object.hasOwn(backup, "machineImages")) {
+        validateMachineImages(backup.machineImages);
     }
 
     return true;
@@ -470,6 +605,49 @@ function syncImportedState() {
     );
 }
 
+function createStorageSnapshot() {
+    const snapshot = {};
+
+    for (const key of ALLOWED_KEYS) {
+        snapshot[key] = readStorage(
+            key,
+            null
+        );
+    }
+
+    return snapshot;
+}
+
+function restoreStorageSnapshot(snapshot) {
+    for (const key of ALLOWED_KEYS) {
+        try {
+            if (
+                snapshot[key] === null ||
+                snapshot[key] === undefined
+            ) {
+                removeStorage(key);
+            } else {
+                writeStorage(
+                    key,
+                    snapshot[key]
+                );
+            }
+        } catch (error) {
+            console.error(
+                `No se pudo recuperar el dato anterior (${key}):`,
+                error
+            );
+        }
+    }
+}
+
+function createStorageImportPayload(backup) {
+    return {
+        application: backup.application,
+        data: backup.data
+    };
+}
+
 export function inspectBackupObject(backup) {
     validateBackup(backup);
 
@@ -482,19 +660,29 @@ export function inspectBackupObject(backup) {
     return {
         valid: true,
         application: APP_CONFIG.fullName,
+
         version: backup.version ??
             backup.applicationVersion ??
+            backup.metadata?.applicationVersion ??
             "desconocida",
 
         schemaVersion:
             backup.schemaVersion ?? "no especificada",
 
-        exportedAt: backup.exportedAt ?? null,
+        exportedAt:
+            backup.exportedAt ??
+            backup.metadata?.exportedAt ??
+            null,
 
         format:
             backup.format ?? "formato anterior",
 
-        sections: Object.keys(data),
+        sections: [
+            ...Object.keys(data),
+            ...(Object.hasOwn(backup, "machineImages")
+                ? ["machineImages"]
+                : [])
+        ],
 
         summary: {
             denominations: Array.isArray(data.denominations)
@@ -515,6 +703,10 @@ export function inspectBackupObject(backup) {
 
             machines: Array.isArray(data.machines)
                 ? data.machines.length
+                : 0,
+
+            machineImages: Array.isArray(backup.machineImages)
+                ? backup.machineImages.length
                 : 0
         }
     };
@@ -583,7 +775,7 @@ export async function readBackupFile(file) {
     };
 }
 
-export function restoreBackup(backup, options = {}) {
+export async function restoreBackup(backup, options = {}) {
     const {
         overwrite = false
     } = options;
@@ -594,39 +786,57 @@ export function restoreBackup(backup, options = {}) {
         backup
     );
 
-    const previousData = {};
+    const previousData = createStorageSnapshot();
 
-    for (const key of ALLOWED_KEYS) {
-        previousData[key] = readStorage(
-            key,
-            null
-        );
-    }
-
-    const result = importStorageData(
+    const hasMachineImages = Object.hasOwn(
         normalizedBackup,
-        { overwrite }
+        "machineImages"
     );
 
+    let previousImages = null;
+    let imageRestoreAttempted = false;
+
+    // Los respaldos antiguos no contienen imágenes:
+    // en ese caso se conservan las imágenes actuales.
+    if (hasMachineImages) {
+        previousImages = await exportMachineImages();
+    }
+
     try {
+        const result = importStorageData(
+            createStorageImportPayload(normalizedBackup),
+            { overwrite }
+        );
+
+        if (hasMachineImages) {
+            imageRestoreAttempted = true;
+
+            await replaceMachineImages(
+                normalizedBackup.machineImages
+            );
+        }
+
         syncImportedState();
+
+        return {
+            success: true,
+            importedKeys: result.importedKeys,
+            importedImages: hasMachineImages
+                ? normalizedBackup.machineImages.length
+                : null,
+            importedAt: new Date().toISOString(),
+            requiresReload: true
+        };
+
     } catch (error) {
-        for (const key of ALLOWED_KEYS) {
+        restoreStorageSnapshot(previousData);
+
+        if (imageRestoreAttempted && previousImages !== null) {
             try {
-                if (
-                    previousData[key] === null ||
-                    previousData[key] === undefined
-                ) {
-                    removeStorage(key);
-                } else {
-                    writeStorage(
-                        key,
-                        previousData[key]
-                    );
-                }
+                await replaceMachineImages(previousImages);
             } catch (rollbackError) {
                 console.error(
-                    "No se pudo recuperar un dato anterior:",
+                    "No se pudieron recuperar las imágenes anteriores:",
                     rollbackError
                 );
             }
@@ -643,13 +853,6 @@ export function restoreBackup(backup, options = {}) {
 
         throw error;
     }
-
-    return {
-        success: true,
-        importedKeys: result.importedKeys,
-        importedAt: new Date().toISOString(),
-        requiresReload: true
-    };
 }
 
 export async function restoreBackupFile(
@@ -659,7 +862,7 @@ export async function restoreBackupFile(
     const inspected = await readBackupFile(file);
 
     return {
-        ...restoreBackup(
+        ...await restoreBackup(
             inspected.backup,
             options
         ),
@@ -669,14 +872,7 @@ export async function restoreBackupFile(
 }
 
 export function createRestorePoint() {
-    const snapshot = {};
-
-    for (const key of ALLOWED_KEYS) {
-        snapshot[key] = readStorage(
-            key,
-            null
-        );
-    }
+    const snapshot = createStorageSnapshot();
 
     return {
         application: APP_CONFIG.name,
@@ -716,14 +912,7 @@ export function restoreRestorePoint(restorePoint) {
         }
     }
 
-    const previousValues = {};
-
-    for (const key of ALLOWED_KEYS) {
-        previousValues[key] = readStorage(
-            key,
-            null
-        );
-    }
+    const previousValues = createStorageSnapshot();
 
     try {
         for (const key of ALLOWED_KEYS) {
@@ -739,26 +928,7 @@ export function restoreRestorePoint(restorePoint) {
         syncImportedState();
 
     } catch (error) {
-        for (const key of ALLOWED_KEYS) {
-            try {
-                if (
-                    previousValues[key] === null ||
-                    previousValues[key] === undefined
-                ) {
-                    removeStorage(key);
-                } else {
-                    writeStorage(
-                        key,
-                        previousValues[key]
-                    );
-                }
-            } catch (rollbackError) {
-                console.error(
-                    "No se pudo restaurar un dato anterior:",
-                    rollbackError
-                );
-            }
-        }
+        restoreStorageSnapshot(previousValues);
 
         try {
             syncImportedState();
