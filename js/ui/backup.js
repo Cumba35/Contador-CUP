@@ -14,25 +14,49 @@ export async function handleBackupAction(action, context) {
     } = context;
 
     switch (action) {
-        case "export-backup":
-            downloadBackup();
-            notify("Copia de seguridad descargada.", "success");
-            return true;
+        case "export-backup": {
+            await downloadBackup();
 
-        case "show-backup-preview":
-            showPreview(JSON.stringify(getBackupPreview(), null, 2));
+            await notify(
+                "Copia de seguridad descargada.",
+                "success"
+            );
+
             return true;
+        }
+
+        case "show-backup-preview": {
+            const preview = await getBackupPreview();
+
+            await showPreview(
+                JSON.stringify(preview, null, 2)
+            );
+
+            return true;
+        }
 
         case "import-backup": {
-            const file = getBackupFile();
+            const file = await getBackupFile();
 
             if (!file) {
-                throw new Error("Selecciona un archivo de respaldo.");
+                throw new Error(
+                    "Selecciona un archivo de respaldo."
+                );
             }
 
             const inspected = await readBackupFile(file);
 
-            const approved = confirmAction(
+            if (
+                !inspected ||
+                !inspected.backup ||
+                !inspected.preview
+            ) {
+                throw new Error(
+                    "No se pudo comprobar el archivo de respaldo."
+                );
+            }
+
+            const approved = await confirmAction(
                 `Se importará el respaldo de ${inspected.preview.application}. ¿Quieres reemplazar los datos existentes?`
             );
 
@@ -40,14 +64,18 @@ export async function handleBackupAction(action, context) {
                 return false;
             }
 
-            restoreBackup(inspected.backup, { overwrite: true });
+            await restoreBackup(
+                inspected.backup,
+                { overwrite: true }
+            );
 
-            notify(
+            await notify(
                 "Respaldo restaurado. La aplicación se recargará.",
                 "success"
             );
 
-            reloadApplication();
+            await reloadApplication();
+
             return true;
         }
 
