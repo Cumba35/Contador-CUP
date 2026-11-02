@@ -9,6 +9,10 @@ import {
     readStorage
 } from "../storage.js";
 
+import {
+    exportMachineImages
+} from "../machines/image-storage.js";
+
 import { downloadText } from "../utils.js";
 import { getState, setState } from "../state.js";
 
@@ -31,7 +35,7 @@ function getArrayLength(value) {
     return Array.isArray(value) ? value.length : 0;
 }
 
-function buildBackupMetadata() {
+function buildBackupMetadata(machineImages) {
     const state = getState();
     const drafts = readStorage("drafts", []);
 
@@ -56,6 +60,7 @@ function buildBackupMetadata() {
             history: true,
             cashMovements: true,
             machines: true,
+            machineImages: true,
             lastSession: true
         },
 
@@ -72,7 +77,9 @@ function buildBackupMetadata() {
 
             machineCount: getArrayLength(
                 state.machines?.registry
-            )
+            ),
+
+            machineImageCount: getArrayLength(machineImages)
         }
     };
 }
@@ -107,7 +114,7 @@ function validateBackupData(data) {
     return true;
 }
 
-export function createBackup(options = {}) {
+export async function createBackup(options = {}) {
     const {
         includeMetadata = true,
         pretty = true
@@ -117,14 +124,17 @@ export function createBackup(options = {}) {
 
     validateBackupData(storageData);
 
+    const machineImages = await exportMachineImages();
+
     const backup = {
         ...storageData,
         format: "contador-cup-backup",
-        formatVersion: 1
+        formatVersion: 1,
+        machineImages
     };
 
     if (includeMetadata) {
-        backup.metadata = buildBackupMetadata();
+        backup.metadata = buildBackupMetadata(machineImages);
     }
 
     const json = JSON.stringify(
@@ -150,8 +160,8 @@ export function createBackup(options = {}) {
     };
 }
 
-export function downloadBackup(options = {}) {
-    const result = createBackup(options);
+export async function downloadBackup(options = {}) {
+    const result = await createBackup(options);
 
     downloadText(
         result.json,
@@ -172,8 +182,8 @@ export function downloadBackup(options = {}) {
     };
 }
 
-export function getBackupPreview() {
-    const result = createBackup({
+export async function getBackupPreview() {
+    const result = await createBackup({
         includeMetadata: true
     });
 
@@ -197,12 +207,13 @@ export function getBackupPreview() {
     };
 }
 
-export function getBackupJSON(options = {}) {
-    return createBackup(options).json;
+export async function getBackupJSON(options = {}) {
+    const result = await createBackup(options);
+    return result.json;
 }
 
-export function copyBackupToClipboard(options = {}) {
-    const result = createBackup(options);
+export async function copyBackupToClipboard(options = {}) {
+    const result = await createBackup(options);
 
     if (!globalThis.navigator?.clipboard?.writeText) {
         throw new Error(
