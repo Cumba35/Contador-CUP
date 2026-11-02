@@ -408,6 +408,7 @@ function getFormData(form) {
                 image: "",
                 connectionType: value("machine-connection-type", "unknown"),
                 connectionDetails: value("machine-connection-details"),
+                connectionCapabilities: value("machine-connection-capabilities"),
                 protocol: value("machine-protocol"),
                 description: value("machine-description")
             };
