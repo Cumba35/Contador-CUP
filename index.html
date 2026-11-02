@@ -731,12 +731,12 @@
 
                             <div class="form-field">
                                 <label for="history-min-amount">Importe mínimo</label>
-                                <input id="history-min-amount" type="number" min="0" step="0.01">
+                                <input id="history-min-amount" type="number" min="0" step="0.01" inputmode="decimal">
                             </div>
 
                             <div class="form-field">
                                 <label for="history-max-amount">Importe máximo</label>
-                                <input id="history-max-amount" type="number" min="0" step="0.01">
+                                <input id="history-max-amount" type="number" min="0" step="0.01" inputmode="decimal">
                             </div>
                         </div>
 
@@ -942,7 +942,7 @@
 
                         <div class="form-field">
                             <label for="opening-balance-input">Importe inicial (CUP)</label>
-                            <input id="opening-balance-input" type="number" min="0" step="0.01" value="0">
+                            <input id="opening-balance-input" type="number" min="0" step="0.01" inputmode="decimal" value="0">
                         </div>
 
                         <div class="form-actions" style="margin-top:14px">
@@ -966,7 +966,7 @@
 
                                 <div class="form-field">
                                     <label for="movement-amount">Importe (CUP)</label>
-                                    <input id="movement-amount" name="amount" type="number" min="0.01" step="0.01" required>
+                                    <input id="movement-amount" name="amount" type="number" min="0.01" step="0.01" inputmode="decimal" required>
                                 </div>
 
                                 <div class="form-field">
@@ -1114,7 +1114,7 @@
                             <div class="form-grid">
                                 <div class="form-field">
                                     <label for="new-denomination-value">Valor numérico</label>
-                                    <input id="new-denomination-value" name="value" type="number" min="0.01" step="0.01" required>
+                                    <input id="new-denomination-value" name="value" type="number" min="1" step="1" inputmode="numeric" required>
                                 </div>
 
                                 <div class="form-field">
@@ -1339,6 +1339,18 @@
     </div>
 
     <div id="toast-container" class="toast-container" aria-live="polite" aria-atomic="true"></div>
+
+    <!-- Compatibilidad con navegadores que no implementan Object.hasOwn(). -->
+    <script>
+        if (typeof Object.hasOwn !== "function") {
+            Object.hasOwn = function (object, property) {
+                return Object.prototype.hasOwnProperty.call(
+                    Object(object),
+                    property
+                );
+            };
+        }
+    </script>
 
     <script type="module" src="./js/app.js"></script>
 
