@@ -5,6 +5,10 @@ import {
 } from "../machines/registry.js";
 
 import {
+    MACHINE_TYPES
+} from "../machines/registry.js";
+
+import {
     saveMachineImage,
     deleteMachineImage
 } from "../machines/image-storage.js";
@@ -24,18 +28,27 @@ export async function handleMachineAction(action, context) {
 
     switch (action) {
         case "select-machine": {
-            setActiveMachine(id);
-            renderMachines();
-            notify("Máquina seleccionada.", "success");
+            await setActiveMachine(id);
+            await renderMachines();
+
+            await notify(
+                "Máquina seleccionada.",
+                "success"
+            );
+
             return true;
         }
 
         case "connect-machine": {
             const result = await connectMachine(id);
-            renderMachines();
+
+            await renderMachines();
 
             if (result) {
-                notify("Solicitud de conexión procesada.", "success");
+                await notify(
+                    "Solicitud de conexión procesada.",
+                    "success"
+                );
             }
 
             return result;
@@ -43,17 +56,25 @@ export async function handleMachineAction(action, context) {
 
         case "disconnect-machine": {
             const result = await disconnectMachine(id);
-            renderMachines();
+
+            await renderMachines();
 
             if (result) {
-                notify("Solicitud de desconexión procesada.", "success");
+                await notify(
+                    "Solicitud de desconexión procesada.",
+                    "success"
+                );
             }
 
             return result;
         }
 
         case "delete-machine": {
-            if (!confirmAction("¿Quieres eliminar esta máquina del registro?")) {
+            const approved = await confirmAction(
+                "¿Quieres eliminar esta máquina del registro?"
+            );
+
+            if (!approved) {
                 return false;
             }
 
@@ -64,7 +85,7 @@ export async function handleMachineAction(action, context) {
                 return false;
             }
 
-            persistMachineRegistry();
+            await persistMachineRegistry();
 
             if (machine?.image) {
                 try {
@@ -77,8 +98,13 @@ export async function handleMachineAction(action, context) {
                 }
             }
 
-            renderMachines();
-            notify("Máquina eliminada.", "success");
+            await renderMachines();
+
+            await notify(
+                "Máquina eliminada.",
+                "success"
+            );
+
             return true;
         }
 
@@ -95,22 +121,66 @@ export async function handleMachineForm(data, context) {
         notify
     } = context;
 
+    if (
+        !data ||
+        typeof data !== "object" ||
+        Array.isArray(data)
+    ) {
+        throw new TypeError(
+            "Los datos de la máquina no son válidos."
+        );
+    }
+
     let savedImageId = null;
 
     try {
-        const imageFile = data.imageFile;
+        const imageFile =
+            data.imageFile ??
+            (
+                typeof File !== "undefined" &&
+                data.image instanceof File
+                    ? data.image
+                    : null
+            );
+
+        const typeMap = {
+            counter: MACHINE_TYPES.BILL_COUNTER,
+            detector: MACHINE_TYPES.COUNTERFEIT_DETECTOR,
+            sorter: MACHINE_TYPES.BILL_SORTER,
+            other: MACHINE_TYPES.OTHER
+        };
 
         const machineData = {
             name: data.name,
-            type: data.type,
+            type: typeMap[data.type] ?? data.type,
             brand: data.brand,
             model: data.model,
-            serialNumber: data.serialNumber,
-            image: data.image || "",
+
+            serialNumber:
+                data.serialNumber ??
+                data.serial ??
+                "",
+
+            image:
+                typeof data.image === "string"
+                    ? data.image
+                    : "",
+
             description: data.description,
-            features: data.features,
+
+            features: Array.isArray(data.features)
+                ? data.features
+                : [],
+
             connectionType: data.connectionType,
+
             connectionDetails: data.connectionDetails,
+
+            connectionCapabilities:
+                data.connectionCapabilities ??
+                data.capabilities ??
+                "",
+
             protocol: data.protocol
         };
 
@@ -119,13 +189,17 @@ export async function handleMachineForm(data, context) {
             machineData.image = savedImageId;
         }
 
-        const machine = registerMachine(machineData);
+        const machine = await registerMachine(machineData);
 
         savedImageId = null;
 
-        persistMachineRegistry();
-        renderMachines();
-        notify("Máquina registrada.", "success");
+        await persistMachineRegistry();
+        await renderMachines();
+
+        await notify(
+            "Máquina registrada.",
+            "success"
+        );
 
         return machine;
 
