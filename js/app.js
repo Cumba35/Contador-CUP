@@ -1,3 +1,4 @@
+
 // js/app.js
 
 import { APP_CONFIG } from "./config.js";
@@ -839,16 +840,19 @@ async function handleClick(event) {
                 break;
 
             case "export-backup":
-                downloadBackup();
+                await downloadBackup();
                 notify("Copia de seguridad descargada.", "success");
                 break;
 
-            case "show-backup-preview":
+            case "show-backup-preview": {
+                const preview = await getBackupPreview();
+
                 text(
                     "backup-preview",
-                    JSON.stringify(getBackupPreview(), null, 2)
+                    JSON.stringify(preview, null, 2)
                 );
                 break;
+            }
 
             case "import-backup": {
                 const file = el("backup-file")?.files?.[0];
@@ -867,7 +871,7 @@ async function handleClick(event) {
                     break;
                 }
 
-                restoreBackup(inspected.backup, {
+                await restoreBackup(inspected.backup, {
                     overwrite: true
                 });
 
