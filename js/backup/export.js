@@ -1,10 +1,14 @@
+
 // js/backup/export.js
 
 import { APP_CONFIG } from "../config.js";
+
 import {
     exportStorageData,
-    getStorageUsage
+    getStorageUsage,
+    readStorage
 } from "../storage.js";
+
 import { downloadText } from "../utils.js";
 import { getState, setState } from "../state.js";
 
@@ -23,8 +27,13 @@ function createBackupFilename(extension = "json") {
     return `contador-cup-respaldo-${timestamp}.${extension}`;
 }
 
+function getArrayLength(value) {
+    return Array.isArray(value) ? value.length : 0;
+}
+
 function buildBackupMetadata() {
     const state = getState();
+    const drafts = readStorage("drafts", []);
 
     return {
         application: APP_CONFIG.name,
@@ -33,10 +42,12 @@ function buildBackupMetadata() {
         schemaVersion: APP_CONFIG.storage.currentVersion,
         exportedAt: new Date().toISOString(),
         currency: APP_CONFIG.currency,
+
         platform: {
             language: globalThis.navigator?.language ?? "unknown",
             online: globalThis.navigator?.onLine ?? false
         },
+
         contents: {
             settings: true,
             denominations: true,
@@ -47,34 +58,50 @@ function buildBackupMetadata() {
             machines: true,
             lastSession: true
         },
+
         summary: {
-            denominationCount: Array.isArray(state.denominations)
-                ? state.denominations.length
-                : 0,
-            historyCount: Array.isArray(state.history.records)
-                ? state.history.records.length
-                : 0,
-            draftCount: Array.isArray(state.counter.drafts)
-                ? state.counter.drafts.length
-                : 0,
-            machineCount: Array.isArray(state.machines.registry)
-                ? state.machines.registry.length
-                : 0
+            denominationCount: getArrayLength(
+                state.denominations
+            ),
+
+            historyCount: getArrayLength(
+                state.history?.records
+            ),
+
+            draftCount: getArrayLength(drafts),
+
+            machineCount: getArrayLength(
+                state.machines?.registry
+            )
         }
     };
 }
 
 function validateBackupData(data) {
-    if (!data || typeof data !== "object" || Array.isArray(data)) {
-        throw new TypeError("No hay datos válidos para crear el respaldo.");
+    if (
+        !data ||
+        typeof data !== "object" ||
+        Array.isArray(data)
+    ) {
+        throw new TypeError(
+            "No hay datos válidos para crear el respaldo."
+        );
     }
 
     if (data.application !== APP_CONFIG.name) {
-        throw new Error("Los datos no pertenecen a Contador-CUP.");
+        throw new Error(
+            "Los datos no pertenecen a Contador-CUP."
+        );
     }
 
-    if (!data.data || typeof data.data !== "object") {
-        throw new Error("El respaldo no contiene la sección de datos.");
+    if (
+        !data.data ||
+        typeof data.data !== "object" ||
+        Array.isArray(data.data)
+    ) {
+        throw new Error(
+            "El respaldo no contiene la sección de datos."
+        );
     }
 
     return true;
@@ -107,14 +134,18 @@ export function createBackup(options = {}) {
     );
 
     if (typeof json !== "string") {
-        throw new Error("No se pudo generar el archivo de respaldo.");
+        throw new Error(
+            "No se pudo generar el archivo de respaldo."
+        );
     }
+
+    const sizeBytes = new Blob([json]).size;
 
     return {
         backup,
         json,
         filename: createBackupFilename(),
-        sizeBytes: new Blob([json]).size,
+        sizeBytes,
         createdAt: backup.exportedAt
     };
 }
@@ -128,7 +159,10 @@ export function downloadBackup(options = {}) {
         "application/json;charset=utf-8"
     );
 
-    setState("backup.lastExportAt", result.createdAt);
+    setState(
+        "backup.lastExportAt",
+        result.createdAt
+    );
 
     return {
         success: true,
@@ -139,7 +173,10 @@ export function downloadBackup(options = {}) {
 }
 
 export function getBackupPreview() {
-    const result = createBackup({ includeMetadata: true });
+    const result = createBackup({
+        includeMetadata: true
+    });
+
     const storage = getStorageUsage();
 
     return {
@@ -147,9 +184,11 @@ export function getBackupPreview() {
         version: APP_CONFIG.version,
         filename: result.filename,
         sizeBytes: result.sizeBytes,
+
         sizeKilobytes: Number(
             (result.sizeBytes / 1024).toFixed(2)
         ),
+
         storageAvailable: storage.available,
         storageBytes: storage.bytes,
         storageKilobytes: storage.kilobytes,
