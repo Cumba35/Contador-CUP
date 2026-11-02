@@ -1,4 +1,3 @@
-
 // js/app.js
 
 import { APP_CONFIG } from "./config.js";
@@ -1020,11 +1019,11 @@ function initializeApplication() {
         loadSettingsIntoControls();
 
         const capabilities = getConnectionCapabilities();
+        const capabilitiesInput = el("machine-connection-capabilities");
 
-        text(
-            "machine-connection-capabilities",
-            capabilities.note
-        );
+        if (capabilitiesInput && capabilities?.note) {
+            capabilitiesInput.placeholder = capabilities.note;
+        }
 
         removeUIEvents = initializeUIEvents({
             onClick: handleClick,
