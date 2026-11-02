@@ -19,12 +19,245 @@ import { el } from "./helpers.js";
 let renderVersion = 0;
 let activeImageUrls = [];
 
+const MACHINE_TYPE_LABELS = Object.freeze({
+    [MACHINE_TYPES.BILL_COUNTER]: "Contadora de billetes",
+    [MACHINE_TYPES.COUNTERFEIT_DETECTOR]: "Detector de billetes falsos",
+    [MACHINE_TYPES.BILL_SORTER]: "Clasificadora de billetes",
+    [MACHINE_TYPES.OTHER]: "Otra máquina"
+});
+
+const CONNECTION_TYPE_LABELS = Object.freeze({
+    none: "Sin conexión",
+    usb: "USB",
+    serial: "Puerto serie",
+    bluetooth: "Bluetooth",
+    network: "Red local",
+    wifi: "Wi-Fi",
+    other: "Otra",
+    unknown: "No especificada"
+});
+
+const CONNECTION_STATUS_LABELS = Object.freeze({
+    connected: "Conectada",
+    disconnected: "Desconectada",
+    "not-verified": "Sin verificar",
+    unsupported: "Controlador no disponible",
+    connecting: "Conectando",
+    error: "Error de conexión"
+});
+
 function revokeActiveImageUrls() {
     activeImageUrls.forEach(url => {
         URL.revokeObjectURL(url);
     });
 
     activeImageUrls = [];
+}
+
+function getMachineTypeLabel(type) {
+    return MACHINE_TYPE_LABELS[type] ||
+        "Tipo no especificado";
+}
+
+function getConnectionTypeLabel(type) {
+    return CONNECTION_TYPE_LABELS[type] ||
+        "No especificada";
+}
+
+function getConnectionStatusLabel(status) {
+    return CONNECTION_STATUS_LABELS[status] ||
+        "Estado desconocido";
+}
+
+function renderSavedCapabilities(machine) {
+    const capabilities = String(
+        machine.connectionCapabilities ?? ""
+    ).trim();
+
+    if (!capabilities) {
+        return "";
+    }
+
+    return `
+        <div class="machine-capabilities">
+            <strong>Capacidades registradas:</strong>
+            <p>${escapeHTML(capabilities)}</p>
+        </div>
+    `;
+}
+
+function renderTechnicalCapabilities(capabilities) {
+    if (!Array.isArray(capabilities) || !capabilities.length) {
+        return "";
+    }
+
+    return `
+        <div class="machine-technical-capabilities">
+            <strong>Estado técnico:</strong>
+            <ul>
+                ${capabilities.map(capability => `
+                    <li>${escapeHTML(capability)}</li>
+                `).join("")}
+            </ul>
+        </div>
+    `;
+}
+
+function renderMachineCard(machine, activeMachine, imageUrls) {
+    const selected = machine.id === activeMachine;
+    const status = getConnectionStatus(machine.id);
+    const capabilities = getConnectionCapabilities(machine.id);
+    const imageUrl = imageUrls.get(machine.id);
+
+    const statusLabel = getConnectionStatusLabel(
+        status?.status
+    );
+
+    return `
+        <article class="list-item machine-card">
+
+            ${
+                imageUrl
+                    ? `
+                        <div class="machine-card-image">
+                            <img
+                                src="${escapeHTML(imageUrl)}"
+                                alt="Imagen de ${escapeHTML(machine.name)}"
+                                loading="lazy"
+                                style="
+                                    display:block;
+                                    width:100%;
+                                    max-width:220px;
+                                    max-height:160px;
+                                    object-fit:contain;
+                                    border-radius:8px;
+                                "
+                            >
+                        </div>
+                    `
+                    : ""
+            }
+
+            <div class="list-item-content">
+
+                <strong>
+                    ${escapeHTML(machine.name)}
+                </strong>
+
+                <div class="text-muted text-small">
+                    ${escapeHTML(machine.brand || "")}
+                    ${escapeHTML(machine.model || "")}
+                </div>
+
+                <div>
+                    Tipo:
+                    ${escapeHTML(getMachineTypeLabel(machine.type))}
+                </div>
+
+                <div>
+                    Conexión:
+                    ${escapeHTML(
+                        getConnectionTypeLabel(machine.connectionType)
+                    )}
+                </div>
+
+                ${
+                    machine.connectionDetails
+                        ? `
+                            <div>
+                                Detalles:
+                                ${escapeHTML(machine.connectionDetails)}
+                            </div>
+                        `
+                        : ""
+                }
+
+                ${
+                    machine.protocol
+                        ? `
+                            <div>
+                                Protocolo:
+                                ${escapeHTML(machine.protocol)}
+                            </div>
+                        `
+                        : ""
+                }
+
+                ${
+                    machine.serialNumber
+                        ? `
+                            <div>
+                                Número de serie:
+                                ${escapeHTML(machine.serialNumber)}
+                            </div>
+                        `
+                        : ""
+                }
+
+                <div>
+                    Estado:
+                    ${escapeHTML(statusLabel)}
+                </div>
+
+                ${
+                    machine.description
+                        ? `
+                            <div class="text-small">
+                                ${escapeHTML(machine.description)}
+                            </div>
+                        `
+                        : ""
+                }
+
+                ${renderSavedCapabilities(machine)}
+
+                ${renderTechnicalCapabilities(capabilities)}
+
+            </div>
+
+            <div class="list-item-actions">
+
+                <button
+                    class="btn btn-secondary btn-sm"
+                    type="button"
+                    data-action="select-machine"
+                    data-id="${escapeHTML(machine.id)}"
+                    ${selected ? "disabled" : ""}
+                >
+                    ${selected ? "Seleccionada" : "Seleccionar"}
+                </button>
+
+                <button
+                    class="btn btn-primary btn-sm"
+                    type="button"
+                    data-action="connect-machine"
+                    data-id="${escapeHTML(machine.id)}"
+                >
+                    Conectar
+                </button>
+
+                <button
+                    class="btn btn-secondary btn-sm"
+                    type="button"
+                    data-action="disconnect-machine"
+                    data-id="${escapeHTML(machine.id)}"
+                >
+                    Desconectar
+                </button>
+
+                <button
+                    class="btn btn-danger btn-sm"
+                    type="button"
+                    data-action="delete-machine"
+                    data-id="${escapeHTML(machine.id)}"
+                >
+                    Eliminar
+                </button>
+
+            </div>
+
+        </article>
+    `;
 }
 
 export async function renderMachines() {
@@ -46,6 +279,7 @@ export async function renderMachines() {
                 <h3 class="empty-state-title">
                     No hay máquinas registradas
                 </h3>
+
                 <p>
                     Registra una máquina para comenzar.
                 </p>
@@ -66,7 +300,7 @@ export async function renderMachines() {
             try {
                 const imageBlob = await getMachineImage(machine.image);
 
-                if (imageBlob) {
+                if (imageBlob instanceof Blob) {
                     imageUrls.set(
                         machine.id,
                         URL.createObjectURL(imageBlob)
@@ -86,129 +320,20 @@ export async function renderMachines() {
         currentRender !== renderVersion ||
         !container.isConnected
     ) {
-        imageUrls.forEach(url => URL.revokeObjectURL(url));
+        imageUrls.forEach(url => {
+            URL.revokeObjectURL(url);
+        });
+
         return;
     }
 
     activeImageUrls = [...imageUrls.values()];
 
-    container.innerHTML = machines.map(machine => {
-        const selected = machine.id === activeMachine;
-        const status = getConnectionStatus(machine.id);
-        const capabilities = getConnectionCapabilities(machine.id);
-        const imageUrl = imageUrls.get(machine.id);
-
-        return `
-            <article class="list-item machine-card">
-                ${
-                    imageUrl
-                        ? `
-                            <div class="machine-card-image">
-                                <img
-                                    src="${escapeHTML(imageUrl)}"
-                                    alt="Imagen de ${escapeHTML(machine.name)}"
-                                    loading="lazy"
-                                    style="
-                                        display:block;
-                                        width:100%;
-                                        max-width:220px;
-                                        max-height:160px;
-                                        object-fit:contain;
-                                        border-radius:8px;
-                                    "
-                                >
-                            </div>
-                        `
-                        : ""
-                }
-
-                <div class="list-item-content">
-                    <strong>
-                        ${escapeHTML(machine.name)}
-                    </strong>
-
-                    <div class="text-muted text-small">
-                        ${escapeHTML(machine.brand || "")}
-                        ${escapeHTML(machine.model || "")}
-                    </div>
-
-                    <div>
-                        Tipo:
-                        ${escapeHTML(
-                            MACHINE_TYPES[machine.type] ||
-                            machine.type ||
-                            "No especificado"
-                        )}
-                    </div>
-
-                    <div>
-                        Conexión:
-                        ${escapeHTML(
-                            machine.connectionType || "No especificada"
-                        )}
-                    </div>
-
-                    <div>
-                        Estado:
-                        ${escapeHTML(
-                            status?.status || "Desconectada"
-                        )}
-                    </div>
-
-                    ${
-                        capabilities
-                            ? `
-                                <div class="text-small">
-                                    ${escapeHTML(
-                                        Array.isArray(capabilities)
-                                            ? capabilities.join(", ")
-                                            : ""
-                                    )}
-                                </div>
-                            `
-                            : ""
-                    }
-                </div>
-
-                <div class="list-item-actions">
-                    <button
-                        class="btn btn-secondary btn-sm"
-                        type="button"
-                        data-action="select-machine"
-                        data-id="${escapeHTML(machine.id)}"
-                        ${selected ? "disabled" : ""}
-                    >
-                        ${selected ? "Seleccionada" : "Seleccionar"}
-                    </button>
-
-                    <button
-                        class="btn btn-primary btn-sm"
-                        type="button"
-                        data-action="connect-machine"
-                        data-id="${escapeHTML(machine.id)}"
-                    >
-                        Conectar
-                    </button>
-
-                    <button
-                        class="btn btn-secondary btn-sm"
-                        type="button"
-                        data-action="disconnect-machine"
-                        data-id="${escapeHTML(machine.id)}"
-                    >
-                        Desconectar
-                    </button>
-
-                    <button
-                        class="btn btn-danger btn-sm"
-                        type="button"
-                        data-action="delete-machine"
-                        data-id="${escapeHTML(machine.id)}"
-                    >
-                        Eliminar
-                    </button>
-                </div>
-            </article>
-        `;
-    }).join("");
+    container.innerHTML = machines.map(machine =>
+        renderMachineCard(
+            machine,
+            activeMachine,
+            imageUrls
+        )
+    ).join("");
 }
