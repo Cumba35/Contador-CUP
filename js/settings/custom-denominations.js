@@ -1,8 +1,10 @@
+
 // js/settings/custom-denominations.js
 
 import { APP_CONFIG } from "../config.js";
 import { getState, setState } from "../state.js";
 import { readStorage, writeStorage } from "../storage.js";
+
 import {
     addCustomDenomination,
     updateDenomination,
@@ -13,12 +15,21 @@ import {
 
 const STORAGE_KEY = "denominations";
 
-function persistDenominations() {
-    const denominations = getState().denominations;
+function validateAndPersist(denominations) {
     const validation = validateDenominationList(denominations);
 
     if (!validation.valid) {
         throw new Error(validation.errors.join(" "));
+    }
+
+    const customCount = denominations.filter(
+        item => item.custom === true
+    ).length;
+
+    if (customCount > APP_CONFIG.limits.customDenominations) {
+        throw new Error(
+            `No se permiten más de ${APP_CONFIG.limits.customDenominations} denominaciones personalizadas.`
+        );
     }
 
     writeStorage(STORAGE_KEY, denominations);
@@ -26,73 +37,119 @@ function persistDenominations() {
     return denominations.map(item => ({ ...item }));
 }
 
-export function createDenomination(data) {
-    const denomination = addCustomDenomination(data);
-    persistDenominations();
+function restorePreviousState(previousDenominations, previousQuantities) {
+    setState("denominations", previousDenominations);
+    setState("counter.quantities", previousQuantities);
+}
 
-    return denomination;
+function executeDenominationChange(operation) {
+    const previousDenominations = getState().denominations.map(
+        item => ({ ...item })
+    );
+
+    const previousQuantities = {
+        ...getState().counter.quantities
+    };
+
+    try {
+        const result = operation();
+
+        validateAndPersist(getState().denominations);
+
+        return result;
+    } catch (error) {
+        restorePreviousState(
+            previousDenominations,
+            previousQuantities
+        );
+
+        throw error;
+    }
+}
+
+export function createDenomination(data) {
+    return executeDenominationChange(() => {
+        return addCustomDenomination(data);
+    });
 }
 
 export function editDenomination(id, changes) {
-    const denomination = updateDenomination(id, changes);
-    persistDenominations();
-
-    return denomination;
+    return executeDenominationChange(() => {
+        return updateDenomination(id, changes);
+    });
 }
 
 export function deleteDenomination(id) {
-    const denomination = getState().denominations.find(
-        item => item.id === id
-    );
+    return executeDenominationChange(() => {
+        const denomination = getState().denominations.find(
+            item => item.id === id
+        );
 
-    if (!denomination) {
-        throw new Error("No se encontró la denominación.");
-    }
+        if (!denomination) {
+            throw new Error("No se encontró la denominación.");
+        }
 
-    if (!denomination.custom) {
-        throw new Error("Solo se pueden eliminar denominaciones personalizadas.");
-    }
+        if (!denomination.custom) {
+            throw new Error(
+                "Solo se pueden eliminar denominaciones personalizadas."
+            );
+        }
 
-    removeCustomDenomination(id);
-    persistDenominations();
+        removeCustomDenomination(id);
 
-    const quantities = { ...getState().counter.quantities };
-    delete quantities[id];
+        const quantities = {
+            ...getState().counter.quantities
+        };
 
-    setState("counter.quantities", quantities);
+        delete quantities[id];
 
-    return true;
+        setState("counter.quantities", quantities);
+
+        return true;
+    });
 }
 
 export function resetDenominationsToDefaults() {
-    const denominations = restoreDefaultDenominations();
-    persistDenominations();
-
-    const validIds = new Set(denominations.map(item => item.id));
-    const quantities = {};
-
-    for (const denomination of denominations) {
-        quantities[denomination.id] = Number(
-            getState().counter.quantities[denomination.id] ?? 0
+    return executeDenominationChange(() => {
+        const denominations = restoreDefaultDenominations();
+        const validIds = new Set(
+            denominations.map(item => item.id)
         );
-    }
 
-    for (const id of Object.keys(quantities)) {
-        if (!validIds.has(id)) {
-            delete quantities[id];
+        const previousQuantities = getState().counter.quantities;
+        const quantities = {};
+
+        for (const denomination of denominations) {
+            quantities[denomination.id] = Number(
+                previousQuantities[denomination.id] ?? 0
+            );
         }
-    }
 
-    setState("counter.quantities", quantities);
+        for (const id of Object.keys(previousQuantities)) {
+            if (!validIds.has(id)) {
+                delete quantities[id];
+            }
+        }
 
-    return denominations;
+        setState("counter.quantities", quantities);
+
+        return denominations;
+    });
 }
 
 export function importCustomDenominations(list, options = {}) {
+    if (!Array.isArray(list)) {
+        throw new TypeError(
+            "La lista importada debe ser un arreglo."
+        );
+    }
+
     const { replaceCustom = false } = options;
 
-    if (!Array.isArray(list)) {
-        throw new TypeError("La lista importada debe ser un arreglo.");
+    if (typeof replaceCustom !== "boolean") {
+        throw new TypeError(
+            "La opción replaceCustom debe ser booleana."
+        );
     }
 
     if (list.length > APP_CONFIG.limits.customDenominations) {
@@ -102,16 +159,45 @@ export function importCustomDenominations(list, options = {}) {
     }
 
     const current = getState().denominations;
-    const defaults = current.filter(item => !item.custom);
-    const existingCustom = current.filter(item => item.custom);
 
-    const incoming = list.map(item => ({
-        id: item.id,
-        value: Number(item.value),
-        label: String(item.label ?? "").trim(),
-        enabled: item.enabled !== false,
-        custom: true
-    }));
+    const defaults = current.filter(
+        item => item.custom !== true
+    );
+
+    const existingCustom = current.filter(
+        item => item.custom === true
+    );
+
+    const incoming = list.map((item, index) => {
+        if (
+            !item ||
+            typeof item !== "object" ||
+            Array.isArray(item)
+        ) {
+            throw new Error(
+                `La denominación importada número ${index + 1} no es válida.`
+            );
+        }
+
+        if (
+            typeof item.id !== "string" ||
+            !item.id.trim()
+        ) {
+            throw new Error(
+                `La denominación importada número ${index + 1} no tiene un identificador válido.`
+            );
+        }
+
+        return {
+            id: item.id.trim(),
+            value: Number(item.value),
+            label: String(item.label ?? "").trim(),
+            enabled: item.enabled !== false,
+            custom: true,
+            createdAt: item.createdAt ?? null,
+            updatedAt: item.updatedAt ?? null
+        };
+    });
 
     const candidates = [
         ...defaults,
@@ -125,42 +211,73 @@ export function importCustomDenominations(list, options = {}) {
         throw new Error(validation.errors.join(" "));
     }
 
-    const ids = new Set();
-    const signatures = new Set();
+    const customCount = candidates.filter(
+        item => item.custom === true
+    ).length;
 
-    for (const item of candidates) {
-        if (ids.has(item.id)) {
-            throw new Error(`Identificador duplicado: ${item.id}`);
-        }
-
-        ids.add(item.id);
-
-        const signature = `${item.value}:${item.label.toLocaleLowerCase()}`;
-
-        if (signatures.has(signature)) {
-            throw new Error(
-                `La denominación "${item.label}" está duplicada.`
-            );
-        }
-
-        signatures.add(signature);
+    if (customCount > APP_CONFIG.limits.customDenominations) {
+        throw new Error(
+            `La importación superaría el límite de ${APP_CONFIG.limits.customDenominations} denominaciones personalizadas.`
+        );
     }
 
-    setState("denominations", candidates);
-    persistDenominations();
+    const previousDenominations = current.map(
+        item => ({ ...item })
+    );
 
-    return candidates.map(item => ({ ...item }));
+    const previousQuantities = {
+        ...getState().counter.quantities
+    };
+
+    try {
+        const saved = validateAndPersist(candidates);
+
+        setState("denominations", saved);
+
+        const validIds = new Set(
+            saved.map(item => item.id)
+        );
+
+        const quantities = {};
+
+        for (const [id, quantity] of Object.entries(
+            previousQuantities
+        )) {
+            if (validIds.has(id)) {
+                quantities[id] = quantity;
+            }
+        }
+
+        for (const denomination of saved) {
+            if (!(denomination.id in quantities)) {
+                quantities[denomination.id] = 0;
+            }
+        }
+
+        setState("counter.quantities", quantities);
+
+        return saved.map(item => ({ ...item }));
+    } catch (error) {
+        restorePreviousState(
+            previousDenominations,
+            previousQuantities
+        );
+
+        throw error;
+    }
 }
 
 export function exportCustomDenominations() {
     const denominations = getState().denominations
-        .filter(item => item.custom)
+        .filter(item => item.custom === true)
         .map(item => ({
             id: item.id,
             value: item.value,
             label: item.label,
             enabled: item.enabled,
-            custom: true
+            custom: true,
+            createdAt: item.createdAt ?? null,
+            updatedAt: item.updatedAt ?? null
         }));
 
     return {
@@ -187,20 +304,40 @@ export function loadDenominationsIntoState() {
         );
     }
 
-    setState("denominations", saved.map(item => ({ ...item })));
+    const customCount = saved.filter(
+        item => item.custom === true
+    ).length;
+
+    if (customCount > APP_CONFIG.limits.customDenominations) {
+        throw new Error(
+            "Las denominaciones guardadas superan el límite permitido."
+        );
+    }
+
+    setState(
+        "denominations",
+        saved.map(item => ({ ...item }))
+    );
 
     return saved.length;
 }
 
 export function getCustomDenominationSummary() {
     const denominations = getState().denominations;
-    const custom = denominations.filter(item => item.custom);
+
+    const custom = denominations.filter(
+        item => item.custom === true
+    );
+
+    const enabledCount = denominations.filter(
+        item => item.enabled !== false
+    ).length;
 
     return {
         total: denominations.length,
         customCount: custom.length,
-        enabledCount: denominations.filter(item => item.enabled).length,
-        disabledCount: denominations.filter(item => !item.enabled).length,
+        enabledCount,
+        disabledCount: denominations.length - enabledCount,
         maximumCustom: APP_CONFIG.limits.customDenominations,
         remainingCustomSlots: Math.max(
             0,
