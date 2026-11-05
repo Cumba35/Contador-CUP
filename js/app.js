@@ -1,9 +1,27 @@
+
 // js/app.js
 
 import { APP_CONFIG } from "./config.js";
-import { getState, setState, markAppInitialized, setAppError, clearAppError } from "./state.js";
-import { readStorage, writeStorage, checkStorageAvailability } from "./storage.js";
-import { initializeNavigation, navigateTo, APP_VIEWS, openNovaAppsHome } from "./navigation.js";
+import {
+    getState,
+    setState,
+    markAppInitialized,
+    setAppError,
+    clearAppError
+} from "./state.js";
+
+import {
+    readStorage,
+    writeStorage,
+    checkStorageAvailability
+} from "./storage.js";
+
+import {
+    initializeNavigation,
+    navigateTo,
+    APP_VIEWS,
+    openNovaAppsHome
+} from "./navigation.js";
 
 import {
     loadCounterQuantities,
@@ -17,7 +35,6 @@ import {
 import {
     saveCurrentDraft,
     saveDraftAsNew,
-    listDrafts,
     loadDraft,
     deleteDraft
 } from "./counter/draft.js";
@@ -27,22 +44,18 @@ import {
     undo,
     redo,
     canUndo,
-    canRedo,
-    clearUndoRedoHistory
+    canRedo
 } from "./counter/undo-redo.js";
 
 import {
     saveCurrentCount,
-    listRecords,
     deleteRecord,
     restoreRecordToCounter,
     loadHistoryIntoState
 } from "./history/records.js";
 
 import {
-    filterHistory,
-    setHistoryFilters,
-    resetHistoryFilters
+    setHistoryFilters
 } from "./history/filters.js";
 
 import { compareRecords } from "./history/comparison.js";
@@ -51,12 +64,6 @@ import {
     downloadReceiptHTML,
     downloadReceiptText
 } from "./history/receipts.js";
-
-import {
-    getOverallStatistics,
-    getDailyStatistics,
-    getDenominationStatistics
-} from "./reports/statistics.js";
 
 import {
     exportHistoryCSV,
@@ -118,8 +125,7 @@ import {
 
 import {
     formatCurrency,
-    formatNumber,
-    escapeHTML
+    formatNumber
 } from "./utils.js";
 
 import {
@@ -151,10 +157,13 @@ import { renderDenominationSettings } from "./ui/render-settings.js";
 let initialized = false;
 let removeUIEvents = null;
 
-/**
- * Guarda el conteo actual únicamente cuando autoSave
- * está activado.
- */
+let serviceWorkerUpdatePrompted = false;
+let serviceWorkerReloadPending = false;
+
+/* =========================================================
+   ALMACENAMIENTO Y RECUPERACIÓN
+========================================================= */
+
 function persistCurrentCount() {
     if (getState().settings?.autoSave !== true) {
         return false;
@@ -200,6 +209,10 @@ function persistOpeningBalance(amount) {
     });
 }
 
+/* =========================================================
+   RENDERIZADO
+========================================================= */
+
 function renderAll() {
     renderCounter();
     renderDrafts();
@@ -209,6 +222,7 @@ function renderAll() {
     renderCash();
     renderMachines();
     renderDenominationSettings();
+
     updateNavigation();
     updateUndoButtons();
 }
@@ -245,14 +259,15 @@ function updateNavigation() {
         }
     });
 
-    const activePanel = document.querySelector(
-        `[data-view-panel="${CSS.escape(currentView)}"]`
-    );
+    const activePanel = Array.from(
+        document.querySelectorAll("[data-view-panel]")
+    ).find(panel => panel.dataset.viewPanel === currentView);
 
     const heading = activePanel?.querySelector("h2");
+    const pageTitle = el("page-title");
 
-    if (heading && el("page-title")) {
-        el("page-title").textContent = heading.textContent;
+    if (heading && pageTitle) {
+        pageTitle.textContent = heading.textContent;
     }
 }
 
@@ -260,24 +275,44 @@ function navigate(view) {
     navigateTo(view);
     updateNavigation();
 
-    if (view === APP_VIEWS.COUNTER) {
-        renderCounter();
-    } else if (view === APP_VIEWS.DRAFTS) {
-        renderDrafts();
-    } else if (view === APP_VIEWS.HISTORY) {
-        renderHistory();
-    } else if (view === APP_VIEWS.COMPARISON) {
-        renderComparisonOptions();
-    } else if (view === APP_VIEWS.REPORTS) {
-        renderReports();
-    } else if (view === APP_VIEWS.CASH) {
-        renderCash();
-    } else if (view === APP_VIEWS.MACHINES) {
-        renderMachines();
-    } else if (view === APP_VIEWS.DENOMINATIONS) {
-        renderDenominationSettings();
+    switch (view) {
+        case APP_VIEWS.COUNTER:
+            renderCounter();
+            break;
+
+        case APP_VIEWS.DRAFTS:
+            renderDrafts();
+            break;
+
+        case APP_VIEWS.HISTORY:
+            renderHistory();
+            break;
+
+        case APP_VIEWS.COMPARISON:
+            renderComparisonOptions();
+            break;
+
+        case APP_VIEWS.REPORTS:
+            renderReports();
+            break;
+
+        case APP_VIEWS.CASH:
+            renderCash();
+            break;
+
+        case APP_VIEWS.MACHINES:
+            renderMachines();
+            break;
+
+        case APP_VIEWS.DENOMINATIONS:
+            renderDenominationSettings();
+            break;
     }
 }
+
+/* =========================================================
+   CONTADOR
+========================================================= */
 
 function updateHistoryFilters() {
     setHistoryFilters({
@@ -305,7 +340,10 @@ function updateQuantityInput(input) {
         quantity < 0 ||
         quantity > APP_CONFIG.limits.denominationQuantity
     ) {
-        input.setCustomValidity("Introduce una cantidad entera válida.");
+        input.setCustomValidity(
+            "Introduce una cantidad entera válida."
+        );
+
         input.reportValidity();
         return;
     }
@@ -338,6 +376,10 @@ function updateQuantityInput(input) {
 function handleInput(event) {
     const target = event.target;
 
+    if (!(target instanceof Element)) {
+        return;
+    }
+
     if (target.matches('[data-action="quantity"]')) {
         updateQuantityInput(target);
         return;
@@ -359,6 +401,10 @@ function handleInput(event) {
 function handleChange(event) {
     const target = event.target;
 
+    if (!(target instanceof Element)) {
+        return;
+    }
+
     if (
         target.id === "report-start-date" ||
         target.id === "report-end-date"
@@ -366,6 +412,10 @@ function handleChange(event) {
         renderReports();
     }
 }
+
+/* =========================================================
+   FORMULARIOS
+========================================================= */
 
 function getFormData(form) {
     const formName = form.dataset.appForm;
@@ -401,14 +451,22 @@ function getFormData(form) {
 
             return {
                 name: value("machine-name"),
-                type: typeMap[value("machine-type")] ?? value("machine-type"),
+                type: typeMap[value("machine-type")] ??
+                    value("machine-type"),
                 brand: value("machine-brand"),
                 model: value("machine-model"),
                 serialNumber: value("machine-serial"),
                 image: "",
-                connectionType: value("machine-connection-type", "unknown"),
-                connectionDetails: value("machine-connection-details"),
-                connectionCapabilities: value("machine-connection-capabilities"),
+                connectionType: value(
+                    "machine-connection-type",
+                    "unknown"
+                ),
+                connectionDetails: value(
+                    "machine-connection-details"
+                ),
+                connectionCapabilities: value(
+                    "machine-connection-capabilities"
+                ),
                 protocol: value("machine-protocol"),
                 description: value("machine-description")
             };
@@ -425,7 +483,9 @@ function getFormData(form) {
                 theme: value("setting-theme", "system"),
                 language: value("setting-language", "es"),
                 autoSave: checked("setting-auto-save"),
-                confirmBeforeDelete: checked("setting-confirm-delete"),
+                confirmBeforeDelete: checked(
+                    "setting-confirm-delete"
+                ),
                 soundEnabled: checked("setting-sound"),
                 hapticEnabled: checked("setting-haptic")
             };
@@ -436,7 +496,13 @@ function getFormData(form) {
 }
 
 async function handleFormSubmit(event) {
-    const form = event.target.closest("form[data-app-form]");
+    const target = event.target;
+
+    if (!(target instanceof Element)) {
+        return;
+    }
+
+    const form = target.closest("form[data-app-form]");
 
     if (!form) {
         return;
@@ -449,7 +515,9 @@ async function handleFormSubmit(event) {
         const data = getFormData(form);
 
         if (!data) {
-            throw new Error("No se reconoce este formulario.");
+            throw new Error(
+                "No se reconoce este formulario."
+            );
         }
 
         switch (formName) {
@@ -468,7 +536,7 @@ async function handleFormSubmit(event) {
                 break;
             }
 
-            case "save-draft": {
+            case "save-draft":
                 saveCurrentDraft(data.name);
 
                 persistCurrentCount();
@@ -477,12 +545,12 @@ async function handleFormSubmit(event) {
 
                 notify("Borrador guardado.", "success");
                 break;
-            }
 
             case "add-cash-movement":
                 addCashMovement(data);
                 renderCash();
                 form.reset();
+
                 notify("Movimiento registrado.", "success");
                 break;
 
@@ -504,6 +572,7 @@ async function handleFormSubmit(event) {
                     form.reset();
 
                     notify("Máquina registrada.", "success");
+
                 } catch (error) {
                     if (savedImageId) {
                         try {
@@ -527,11 +596,13 @@ async function handleFormSubmit(event) {
                 renderDenominationSettings();
                 renderCounter();
                 form.reset();
+
                 notify("Denominación añadida.", "success");
                 break;
 
             case "save-settings": {
-                const wasAutoSaveEnabled = getState().settings.autoSave;
+                const wasAutoSaveEnabled =
+                    getState().settings.autoSave;
 
                 savePreferences(data);
 
@@ -540,28 +611,42 @@ async function handleFormSubmit(event) {
                 }
 
                 applySavedTheme();
+
                 notify("Configuración guardada.", "success");
                 break;
             }
 
             default:
-                throw new Error("Acción de formulario desconocida.");
+                throw new Error(
+                    "Acción de formulario desconocida."
+                );
         }
     });
 }
+
+/* =========================================================
+   DONACIONES Y PORTAPAPELES
+========================================================= */
 
 async function copyDonationValue(inputId, description) {
     const input = el(inputId);
     const content = input?.value?.trim();
 
     if (!content) {
-        throw new Error(`No se encontró ${description}.`);
+        throw new Error(
+            `No se encontró ${description}.`
+        );
     }
 
-    if (navigator.clipboard?.writeText && window.isSecureContext) {
+    if (
+        navigator.clipboard?.writeText &&
+        window.isSecureContext
+    ) {
         await navigator.clipboard.writeText(content);
+
     } else {
-        const temporaryInput = document.createElement("textarea");
+        const temporaryInput =
+            document.createElement("textarea");
 
         temporaryInput.value = content;
         temporaryInput.setAttribute("readonly", "");
@@ -570,10 +655,15 @@ async function copyDonationValue(inputId, description) {
         temporaryInput.style.pointerEvents = "none";
 
         document.body.appendChild(temporaryInput);
+
         temporaryInput.select();
-        temporaryInput.setSelectionRange(0, temporaryInput.value.length);
+        temporaryInput.setSelectionRange(
+            0,
+            temporaryInput.value.length
+        );
 
         const copied = document.execCommand("copy");
+
         temporaryInput.remove();
 
         if (!copied) {
@@ -586,8 +676,18 @@ async function copyDonationValue(inputId, description) {
     notify(`${description} copiado.`, "success");
 }
 
+/* =========================================================
+   ACCIONES DE LA INTERFAZ
+========================================================= */
+
 async function handleClick(event) {
-    const button = event.target.closest("[data-action]");
+    const target = event.target;
+
+    if (!(target instanceof Element)) {
+        return;
+    }
+
+    const button = target.closest("[data-action]");
 
     if (!button || button.disabled) {
         return;
@@ -617,11 +717,16 @@ async function handleClick(event) {
                 break;
 
             case "reset-counter":
-                if (confirmAction("¿Quieres reiniciar el conteo actual?")) {
+                if (
+                    confirmAction(
+                        "¿Quieres reiniciar el conteo actual?"
+                    )
+                ) {
                     captureUndoState();
                     resetCounter();
                     persistCurrentCount();
                     renderCounter();
+
                     notify("Conteo reiniciado.", "success");
                 }
                 break;
@@ -645,6 +750,7 @@ async function handleClick(event) {
                 persistCurrentCount();
                 renderDrafts();
                 renderCounter();
+
                 notify("Nuevo borrador guardado.", "success");
                 break;
 
@@ -653,30 +759,45 @@ async function handleClick(event) {
                 persistCurrentCount();
                 renderCounter();
                 navigate(APP_VIEWS.COUNTER);
+
                 notify("Borrador cargado.", "success");
                 break;
 
             case "delete-draft":
-                if (confirmAction("¿Quieres eliminar este borrador?")) {
+                if (
+                    confirmAction(
+                        "¿Quieres eliminar este borrador?"
+                    )
+                ) {
                     deleteDraft(id);
                     renderDrafts();
+
                     notify("Borrador eliminado.", "success");
                 }
                 break;
 
             case "restore-record":
-                loadCounterQuantities(restoreRecordToCounter(id));
+                loadCounterQuantities(
+                    restoreRecordToCounter(id)
+                );
+
                 persistCurrentCount();
                 renderCounter();
                 navigate(APP_VIEWS.COUNTER);
+
                 notify("Conteo restaurado.", "success");
                 break;
 
             case "delete-record":
-                if (confirmAction("¿Quieres eliminar este registro?")) {
+                if (
+                    confirmAction(
+                        "¿Quieres eliminar este registro?"
+                    )
+                ) {
                     deleteRecord(id);
                     renderHistory();
                     renderReports();
+
                     notify("Registro eliminado.", "success");
                 }
                 break;
@@ -702,6 +823,7 @@ async function handleClick(event) {
                 renderComparisonResult(
                     compareRecords(firstId, secondId)
                 );
+
                 break;
             }
 
@@ -715,7 +837,11 @@ async function handleClick(event) {
                     value("report-start-date"),
                     value("report-end-date")
                 );
-                notify("Estadísticas diarias exportadas.", "success");
+
+                notify(
+                    "Estadísticas diarias exportadas.",
+                    "success"
+                );
                 break;
 
             case "export-denominations":
@@ -723,54 +849,76 @@ async function handleClick(event) {
                     value("report-start-date"),
                     value("report-end-date")
                 );
-                notify("Estadísticas por denominación exportadas.", "success");
+
+                notify(
+                    "Estadísticas por denominación exportadas.",
+                    "success"
+                );
                 break;
 
             case "delete-movement":
-                if (confirmAction("¿Quieres eliminar este movimiento de caja?")) {
+                if (
+                    confirmAction(
+                        "¿Quieres eliminar este movimiento de caja?"
+                    )
+                ) {
                     deleteCashMovement(id);
                     renderCash();
+
                     notify("Movimiento eliminado.", "success");
                 }
                 break;
 
             case "set-opening-balance": {
-                const amount = Number(value("opening-balance-input"));
+                const amount = Number(
+                    value("opening-balance-input")
+                );
 
                 setOpeningBalance(amount);
                 persistOpeningBalance(amount);
                 renderCash();
 
-                notify("Saldo inicial actualizado.", "success");
+                notify(
+                    "Saldo inicial actualizado.",
+                    "success"
+                );
                 break;
             }
 
             case "select-machine":
                 setActiveMachine(id);
                 renderMachines();
+
                 notify("Máquina seleccionada.", "success");
                 break;
 
             case "connect-machine": {
                 const result = await connectMachine(id);
+
                 renderMachines();
 
                 notify(
                     result.message,
                     result.success ? "success" : "warning"
                 );
+
                 break;
             }
 
             case "disconnect-machine": {
                 const result = await disconnectMachine(id);
+
                 renderMachines();
                 notify(result.message, "info");
                 break;
             }
 
             case "delete-machine":
-                if (confirmAction("¿Quieres eliminar esta máquina del registro?")) {
+                if (
+                    confirmAction(
+                        "¿Quieres eliminar esta máquina del registro?"
+                    )
+                ) {
                     const machine = getMachineById(id);
                     const removed = removeMachine(id);
 
@@ -779,7 +927,9 @@ async function handleClick(event) {
 
                         if (machine?.image) {
                             try {
-                                await deleteMachineImage(machine.image);
+                                await deleteMachineImage(
+                                    machine.image
+                                );
                             } catch (error) {
                                 console.error(
                                     "No se pudo eliminar la imagen de la máquina:",
@@ -789,18 +939,25 @@ async function handleClick(event) {
                         }
 
                         renderMachines();
-                        notify("Máquina eliminada.", "success");
+
+                        notify(
+                            "Máquina eliminada.",
+                            "success"
+                        );
                     }
                 }
                 break;
 
             case "toggle-denomination": {
-                const denomination = getState().denominations.find(
-                    item => item.id === id
-                );
+                const denomination =
+                    getState().denominations.find(
+                        item => item.id === id
+                    );
 
                 if (!denomination) {
-                    throw new Error("No se encontró la denominación.");
+                    throw new Error(
+                        "No se encontró la denominación."
+                    );
                 }
 
                 editDenomination(id, {
@@ -813,11 +970,19 @@ async function handleClick(event) {
             }
 
             case "delete-denomination":
-                if (confirmAction("¿Quieres eliminar esta denominación?")) {
+                if (
+                    confirmAction(
+                        "¿Quieres eliminar esta denominación?"
+                    )
+                ) {
                     deleteDenomination(id);
                     renderDenominationSettings();
                     renderCounter();
-                    notify("Denominación eliminada.", "success");
+
+                    notify(
+                        "Denominación eliminada.",
+                        "success"
+                    );
                 }
                 break;
 
@@ -838,7 +1003,11 @@ async function handleClick(event) {
 
             case "export-backup":
                 await downloadBackup();
-                notify("Copia de seguridad descargada.", "success");
+
+                notify(
+                    "Copia de seguridad descargada.",
+                    "success"
+                );
                 break;
 
             case "show-backup-preview": {
@@ -848,6 +1017,7 @@ async function handleClick(event) {
                     "backup-preview",
                     JSON.stringify(preview, null, 2)
                 );
+
                 break;
             }
 
@@ -855,7 +1025,9 @@ async function handleClick(event) {
                 const file = el("backup-file")?.files?.[0];
 
                 if (!file) {
-                    throw new Error("Selecciona un archivo de respaldo.");
+                    throw new Error(
+                        "Selecciona un archivo de respaldo."
+                    );
                 }
 
                 const inspected = await readBackupFile(file);
@@ -868,9 +1040,10 @@ async function handleClick(event) {
                     break;
                 }
 
-                await restoreBackup(inspected.backup, {
-                    overwrite: true
-                });
+                await restoreBackup(
+                    inspected.backup,
+                    { overwrite: true }
+                );
 
                 notify(
                     "Respaldo restaurado. La aplicación se recargará.",
@@ -908,21 +1081,24 @@ async function handleClick(event) {
     });
 }
 
-/**
- * Recupera el saldo inicial sin sobrescribir el valor guardado
- * en el formato nuevo de cashMovements.
- */
+/* =========================================================
+   SALDO INICIAL
+========================================================= */
+
 function loadOpeningBalance() {
-    // loadCashMovementsIntoState() ya recuperó el saldo inicial,
-    // migró los formatos antiguos y actualizó el estado en memoria.
-    // Aquí solo reflejamos ese valor en el campo, sin volver a guardarlo.
-    const amount = getState().cash?.openingBalance ?? 0;
+    const amount =
+        getState().cash?.openingBalance ?? 0;
+
     const input = el("opening-balance-input");
 
     if (input) {
         input.value = String(amount);
     }
 }
+
+/* =========================================================
+   CONFIGURACIÓN DE CONTROLES
+========================================================= */
 
 function loadSettingsIntoControls() {
     const settings = getState().settings;
@@ -933,8 +1109,10 @@ function loadSettingsIntoControls() {
     };
 
     for (const [id, setting] of Object.entries(controls)) {
-        if (el(id)) {
-            el(id).value = setting;
+        const control = el(id);
+
+        if (control) {
+            control.value = setting;
         }
     }
 
@@ -946,11 +1124,113 @@ function loadSettingsIntoControls() {
     };
 
     for (const [id, setting] of Object.entries(checkboxes)) {
-        if (el(id)) {
-            el(id).checked = Boolean(setting);
+        const control = el(id);
+
+        if (control) {
+            control.checked = Boolean(setting);
         }
     }
 }
+
+/* =========================================================
+   ACTUALIZACIONES DEL SERVICE WORKER
+========================================================= */
+
+function promptServiceWorkerUpdate(registration) {
+    if (
+        serviceWorkerUpdatePrompted ||
+        !registration?.waiting ||
+        !navigator.serviceWorker?.controller
+    ) {
+        return;
+    }
+
+    serviceWorkerUpdatePrompted = true;
+
+    const accepted = globalThis.confirm(
+        "Hay una nueva versión de Contador CUP disponible. ¿Quieres instalarla ahora?"
+    );
+
+    if (!accepted) {
+        return;
+    }
+
+    serviceWorkerReloadPending = true;
+
+    const waitingWorker = registration.waiting;
+
+    navigator.serviceWorker.addEventListener(
+        "controllerchange",
+        () => {
+            if (serviceWorkerReloadPending) {
+                serviceWorkerReloadPending = false;
+                globalThis.location.reload();
+            }
+        },
+        { once: true }
+    );
+
+    waitingWorker.postMessage("SKIP_WAITING");
+}
+
+function initializeServiceWorkerUpdates() {
+    if (!("serviceWorker" in navigator)) {
+        return;
+    }
+
+    navigator.serviceWorker.ready
+        .then(registration => {
+            if (
+                registration.waiting &&
+                navigator.serviceWorker.controller
+            ) {
+                promptServiceWorkerUpdate(registration);
+            }
+
+            registration.addEventListener(
+                "updatefound",
+                () => {
+                    const installingWorker =
+                        registration.installing;
+
+                    if (!installingWorker) {
+                        return;
+                    }
+
+                    installingWorker.addEventListener(
+                        "statechange",
+                        () => {
+                            if (
+                                installingWorker.state === "installed" &&
+                                navigator.serviceWorker.controller
+                            ) {
+                                promptServiceWorkerUpdate(
+                                    registration
+                                );
+                            }
+                        }
+                    );
+                }
+            );
+
+            registration.update().catch(error => {
+                console.warn(
+                    "No se pudo comprobar si hay actualizaciones:",
+                    error
+                );
+            });
+        })
+        .catch(error => {
+            console.warn(
+                "No se pudo consultar el registro del Service Worker:",
+                error
+            );
+        });
+}
+
+/* =========================================================
+   ALMACENAMIENTO Y ADVERTENCIAS
+========================================================= */
 
 function showStorageWarning() {
     if (!checkStorageAvailability()) {
@@ -960,6 +1240,10 @@ function showStorageWarning() {
         );
     }
 }
+
+/* =========================================================
+   INICIALIZACIÓN
+========================================================= */
 
 function initializeApplication() {
     if (initialized) {
@@ -971,11 +1255,13 @@ function initializeApplication() {
     try {
         loadPreferencesIntoState();
         loadDenominationsIntoState();
+
         restoreCurrentCount();
 
         loadHistoryIntoState();
         loadCashMovementsIntoState();
         loadMachinesIntoState();
+
         loadOpeningBalance();
 
         initializeNavigation();
@@ -983,10 +1269,16 @@ function initializeApplication() {
         loadSettingsIntoControls();
 
         const capabilities = getConnectionCapabilities();
-        const capabilitiesInput = el("machine-connection-capabilities");
+        const capabilitiesInput = el(
+            "machine-connection-capabilities"
+        );
 
-        if (capabilitiesInput && capabilities?.note) {
-            capabilitiesInput.placeholder = capabilities.note;
+        if (
+            capabilitiesInput &&
+            capabilities?.note
+        ) {
+            capabilitiesInput.placeholder =
+                capabilities.note;
         }
 
         removeUIEvents = initializeUIEvents({
@@ -995,7 +1287,10 @@ function initializeApplication() {
             onChange: handleChange
         });
 
-        document.addEventListener("submit", handleFormSubmit);
+        document.addEventListener(
+            "submit",
+            handleFormSubmit
+        );
 
         renderAll();
 
@@ -1003,6 +1298,8 @@ function initializeApplication() {
         clearAppError();
 
         showStorageWarning();
+
+        initializeServiceWorkerUpdates();
 
     } catch (error) {
         initialized = false;
@@ -1022,9 +1319,16 @@ function initializeApplication() {
 
         notify(message, "error");
 
-        console.error("Error al iniciar Contador-CUP:", error);
+        console.error(
+            "Error al iniciar Contador-CUP:",
+            error
+        );
     }
 }
+
+/* =========================================================
+   LIMPIEZA
+========================================================= */
 
 function cleanupApplication() {
     if (removeUIEvents) {
@@ -1032,9 +1336,17 @@ function cleanupApplication() {
         removeUIEvents = null;
     }
 
-    document.removeEventListener("submit", handleFormSubmit);
+    document.removeEventListener(
+        "submit",
+        handleFormSubmit
+    );
+
     initialized = false;
 }
+
+/* =========================================================
+   ARRANQUE
+========================================================= */
 
 if (document.readyState === "loading") {
     document.addEventListener(
@@ -1046,4 +1358,7 @@ if (document.readyState === "loading") {
     initializeApplication();
 }
 
-globalThis.addEventListener?.("pagehide", cleanupApplication);
+globalThis.addEventListener?.(
+    "pagehide",
+    cleanupApplication
+);
