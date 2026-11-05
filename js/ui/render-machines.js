@@ -1,3 +1,4 @@
+
 // js/ui/render-machines.js
 
 import { getState } from "../state.js";
@@ -43,7 +44,8 @@ const CONNECTION_STATUS_LABELS = Object.freeze({
     "not-verified": "Sin verificar",
     unsupported: "Controlador no disponible",
     connecting: "Conectando",
-    error: "Error de conexión"
+    error: "Error de conexión",
+    "connection-error": "Error de conexión"
 });
 
 function revokeActiveImageUrls() {
@@ -87,13 +89,16 @@ function renderSavedCapabilities(machine) {
 }
 
 function renderTechnicalCapabilities(capabilities) {
-    if (!Array.isArray(capabilities) || !capabilities.length) {
+    if (
+        !Array.isArray(capabilities) ||
+        !capabilities.length
+    ) {
         return "";
     }
 
     return `
         <div class="machine-technical-capabilities">
-            <strong>Estado técnico:</strong>
+            <strong>Compatibilidad del dispositivo:</strong>
             <ul>
                 ${capabilities.map(capability => `
                     <li>${escapeHTML(capability)}</li>
@@ -103,14 +108,96 @@ function renderTechnicalCapabilities(capabilities) {
     `;
 }
 
+function renderConnectionInformation(status, capabilities) {
+    const connectionMessage = String(
+        status?.message ?? ""
+    ).trim();
+
+    const transport = status?.transport
+        ? String(status.transport).toUpperCase()
+        : "";
+
+    return `
+        <div class="machine-connection-information">
+            ${
+                transport
+                    ? `
+                        <div>
+                            <strong>Transporte activo:</strong>
+                            ${escapeHTML(transport)}
+                        </div>
+                    `
+                    : ""
+            }
+
+            ${
+                connectionMessage
+                    ? `
+                        <p class="text-small">
+                            ${escapeHTML(connectionMessage)}
+                        </p>
+                    `
+                    : ""
+            }
+
+            ${
+                capabilities?.note
+                    ? `
+                        <p class="text-small text-muted">
+                            ${escapeHTML(capabilities.note)}
+                        </p>
+                    `
+                    : ""
+            }
+        </div>
+    `;
+}
+
+function renderProtocolInformation(machine, capabilities) {
+    const verified = machine.protocolVerified === true;
+    const automaticCounting =
+        capabilities?.automaticCountingAvailable === true;
+
+    return `
+        <div class="machine-protocol-information">
+            <div>
+                <strong>Protocolo:</strong>
+                ${machine.protocol
+                    ? escapeHTML(machine.protocol)
+                    : "No especificado"}
+            </div>
+
+            <div>
+                <strong>Protocolo verificado:</strong>
+                ${verified ? "Sí" : "No"}
+            </div>
+
+            <div>
+                <strong>Conteo automático:</strong>
+                ${automaticCounting
+                    ? "Disponible"
+                    : "No habilitado"}
+            </div>
+        </div>
+    `;
+}
+
 function renderMachineCard(machine, activeMachine, imageUrls) {
     const selected = machine.id === activeMachine;
+
     const status = getConnectionStatus(machine.id);
     const capabilities = getConnectionCapabilities(machine.id);
+
     const imageUrl = imageUrls.get(machine.id);
+
+    const connected = status?.connected === true;
 
     const statusLabel = getConnectionStatusLabel(
         status?.status
+    );
+
+    const connectionDetailsConfigured = Boolean(
+        String(machine.connectionDetails ?? "").trim()
     );
 
     return `
@@ -150,44 +237,33 @@ function renderMachineCard(machine, activeMachine, imageUrls) {
                 </div>
 
                 <div>
-                    Tipo:
-                    ${escapeHTML(getMachineTypeLabel(machine.type))}
-                </div>
-
-                <div>
-                    Conexión:
+                    <strong>Tipo:</strong>
                     ${escapeHTML(
-                        getConnectionTypeLabel(machine.connectionType)
+                        getMachineTypeLabel(machine.type)
                     )}
                 </div>
 
-                ${
-                    machine.connectionDetails
-                        ? `
-                            <div>
-                                Detalles:
-                                ${escapeHTML(machine.connectionDetails)}
-                            </div>
-                        `
-                        : ""
-                }
+                <div>
+                    <strong>Conexión:</strong>
+                    ${escapeHTML(
+                        getConnectionTypeLabel(
+                            machine.connectionType
+                        )
+                    )}
+                </div>
 
-                ${
-                    machine.protocol
-                        ? `
-                            <div>
-                                Protocolo:
-                                ${escapeHTML(machine.protocol)}
-                            </div>
-                        `
-                        : ""
-                }
+                <div>
+                    <strong>Configuración técnica:</strong>
+                    ${connectionDetailsConfigured
+                        ? "Registrada"
+                        : "Pendiente"}
+                </div>
 
                 ${
                     machine.serialNumber
                         ? `
                             <div>
-                                Número de serie:
+                                <strong>Número de serie:</strong>
                                 ${escapeHTML(machine.serialNumber)}
                             </div>
                         `
@@ -195,8 +271,16 @@ function renderMachineCard(machine, activeMachine, imageUrls) {
                 }
 
                 <div>
-                    Estado:
-                    ${escapeHTML(statusLabel)}
+                    <strong>Estado de conexión:</strong>
+                    <span
+                        class="${
+                            connected
+                                ? "text-success"
+                                : "text-muted"
+                        }"
+                    >
+                        ${escapeHTML(statusLabel)}
+                    </span>
                 </div>
 
                 ${
@@ -211,7 +295,19 @@ function renderMachineCard(machine, activeMachine, imageUrls) {
 
                 ${renderSavedCapabilities(machine)}
 
-                ${renderTechnicalCapabilities(capabilities)}
+                ${renderProtocolInformation(
+                    machine,
+                    capabilities
+                )}
+
+                ${renderConnectionInformation(
+                    status,
+                    capabilities
+                )}
+
+                ${renderTechnicalCapabilities(
+                    capabilities?.supportedProtocols
+                )}
 
             </div>
 
@@ -232,8 +328,9 @@ function renderMachineCard(machine, activeMachine, imageUrls) {
                     type="button"
                     data-action="connect-machine"
                     data-id="${escapeHTML(machine.id)}"
+                    ${connected ? "disabled" : ""}
                 >
-                    Conectar
+                    ${connected ? "Conectada" : "Conectar"}
                 </button>
 
                 <button
@@ -241,6 +338,7 @@ function renderMachineCard(machine, activeMachine, imageUrls) {
                     type="button"
                     data-action="disconnect-machine"
                     data-id="${escapeHTML(machine.id)}"
+                    ${connected ? "" : "disabled"}
                 >
                     Desconectar
                 </button>
@@ -268,8 +366,11 @@ export async function renderMachines() {
     }
 
     const currentRender = ++renderVersion;
+
     const machines = listMachines();
-    const activeMachine = getState().machines?.activeMachineId;
+
+    const activeMachine =
+        getState().machines?.activeMachineId;
 
     revokeActiveImageUrls();
 
@@ -298,7 +399,9 @@ export async function renderMachines() {
             }
 
             try {
-                const imageBlob = await getMachineImage(machine.image);
+                const imageBlob = await getMachineImage(
+                    machine.image
+                );
 
                 if (imageBlob instanceof Blob) {
                     imageUrls.set(
