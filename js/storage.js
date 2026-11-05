@@ -1,17 +1,21 @@
+
 // js/storage.js
 
 import { APP_CONFIG, getStorageKey } from "./config.js";
 
 const STORAGE_PREFIX = APP_CONFIG.storage.prefix;
 
+const LEGACY_KEYS = Object.freeze({
+    theme: "temaOscuroCUP",
+    denominations: "denominacionesCUP",
+    history: "historialCUP",
+    quantities: "cantidadesActualesCUP"
+});
+
 function getFullKey(key) {
     return getStorageKey(key);
 }
 
-/**
- * Obtiene localStorage sin provocar errores
- * si el navegador bloquea su acceso.
- */
 function getStorage() {
     try {
         return globalThis.localStorage ?? null;
@@ -20,10 +24,222 @@ function getStorage() {
     }
 }
 
+function parseJSON(raw, fallback = null) {
+    try {
+        return JSON.parse(raw);
+    } catch {
+        return fallback;
+    }
+}
+
+function readLegacyValue(storage, key) {
+    try {
+        const raw = storage.getItem(key);
+
+        if (raw === null) {
+            return null;
+        }
+
+        return parseJSON(raw, raw);
+    } catch {
+        return null;
+    }
+}
+
+function isPlainObject(value) {
+    return (
+        value !== null &&
+        typeof value === "object" &&
+        !Array.isArray(value)
+    );
+}
+
+function migrateLegacySettings(storage, migrated) {
+    const value = readLegacyValue(
+        storage,
+        LEGACY_KEYS.theme
+    );
+
+    if (value === null) {
+        return;
+    }
+
+    const targetKey = getFullKey("settings");
+
+    if (storage.getItem(targetKey) !== null) {
+        return;
+    }
+
+    let theme;
+
+    if (typeof value === "boolean") {
+        theme = value ? "dark" : "light";
+    } else if (typeof value === "string") {
+        const normalized = value.trim().toLowerCase();
+
+        if (
+            normalized === "true" ||
+            normalized === "dark"
+        ) {
+            theme = "dark";
+        } else if (
+            normalized === "false" ||
+            normalized === "light"
+        ) {
+            theme = "light";
+        }
+    }
+
+    if (!theme) {
+        return;
+    }
+
+    writeStorage("settings", {
+        ...APP_CONFIG.defaults,
+        theme
+    });
+
+    migrated.push("settings");
+}
+
+function migrateLegacyDenominations(storage, migrated) {
+    const value = readLegacyValue(
+        storage,
+        LEGACY_KEYS.denominations
+    );
+
+    if (!Array.isArray(value)) {
+        return;
+    }
+
+    const targetKey = getFullKey("denominations");
+
+    if (storage.getItem(targetKey) !== null) {
+        return;
+    }
+
+    if (value.length === 0) {
+        return;
+    }
+
+    writeStorage("denominations", value);
+
+    migrated.push("denominations");
+}
+
+function migrateLegacyHistory(storage, migrated) {
+    const value = readLegacyValue(
+        storage,
+        LEGACY_KEYS.history
+    );
+
+    if (!Array.isArray(value)) {
+        return;
+    }
+
+    const targetKey = getFullKey("history");
+
+    if (storage.getItem(targetKey) !== null) {
+        return;
+    }
+
+    writeStorage("history", value);
+
+    migrated.push("history");
+}
+
+function migrateLegacyQuantities(storage, migrated) {
+    const value = readLegacyValue(
+        storage,
+        LEGACY_KEYS.quantities
+    );
+
+    if (!isPlainObject(value)) {
+        return;
+    }
+
+    const targetKey = getFullKey("currentCount");
+
+    if (storage.getItem(targetKey) !== null) {
+        return;
+    }
+
+    const quantities = {};
+
+    for (const [id, quantity] of Object.entries(value)) {
+        const parsed = Number(quantity);
+
+        if (
+            !Number.isSafeInteger(parsed) ||
+            parsed < 0
+        ) {
+            continue;
+        }
+
+        quantities[id] = parsed;
+    }
+
+    if (Object.keys(quantities).length === 0) {
+        return;
+    }
+
+    writeStorage("currentCount", {
+        quantities,
+        total: 0,
+        draftId: null,
+        draftName: "",
+        savedAt: new Date().toISOString()
+    });
+
+    migrated.push("currentCount");
+}
+
 /**
- * Comprueba si se puede escribir en localStorage.
- * Esta comprobación se reserva para operaciones
- * que necesitan conocer la disponibilidad de escritura.
+ * Recupera datos de versiones antiguas.
+ *
+ * Las claves originales permanecen intactas
+ * para evitar pérdidas durante la migración.
+ */
+export function migrateLegacyStorage() {
+    const storage = getStorage();
+
+    if (!storage) {
+        return {
+            success: false,
+            migrated: [],
+            reason: "storage-unavailable"
+        };
+    }
+
+    const migrated = [];
+
+    try {
+        migrateLegacySettings(storage, migrated);
+        migrateLegacyDenominations(storage, migrated);
+        migrateLegacyHistory(storage, migrated);
+        migrateLegacyQuantities(storage, migrated);
+
+        return {
+            success: true,
+            migrated
+        };
+    } catch (error) {
+        console.error(
+            "Error durante la migración de datos antiguos:",
+            error
+        );
+
+        return {
+            success: false,
+            migrated,
+            error
+        };
+    }
+}
+
+/**
+ * Obtiene localStorage sin provocar errores
+ * si el navegador bloquea su acceso.
  */
 function isStorageAvailable() {
     const storage = getStorage();
@@ -212,8 +428,7 @@ export function clearAppStorage() {
 
 /**
  * Calcula el espacio ocupado por los datos
- * de Contador-CUP, incluso cuando no queda
- * espacio para nuevas escrituras.
+ * de Contador-CUP.
  */
 export function getStorageUsage() {
     const storage = getStorage();
@@ -395,3 +610,7 @@ export function importStorageData(backup, options = {}) {
         throw error;
     }
 }
+
+// La migración se ejecuta al cargar el módulo,
+// antes de que app.js inicialice los datos.
+migrateLegacyStorage();
