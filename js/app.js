@@ -1170,7 +1170,9 @@ function promptServiceWorkerUpdate(registration) {
         { once: true }
     );
 
-    waitingWorker.postMessage("SKIP_WAITING");
+    waitingWorker.postMessage({
+        type: "SKIP_WAITING"
+    });
 }
 
 function initializeServiceWorkerUpdates() {
