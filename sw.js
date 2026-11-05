@@ -1,9 +1,7 @@
 
-// sw.js
-
 "use strict";
 
-const CACHE_NAME = "contador-cup-v2.0.3";
+const CACHE_NAME = "contador-cup-v2.0.3-r2";
 
 const APP_SHELL = [
     "./",
@@ -74,11 +72,61 @@ const APP_SHELL = [
     "./js/ui/render-settings.js"
 ];
 
+const APP_CACHE_PREFIX = "contador-cup-";
+
+function isAppRequest(request) {
+    if (!request || request.method !== "GET") {
+        return false;
+    }
+
+    try {
+        const url = new URL(request.url);
+
+        return url.origin === self.location.origin;
+    } catch {
+        return false;
+    }
+}
+
+async function cacheResponse(request, response) {
+    if (
+        !response ||
+        !response.ok ||
+        response.type === "opaque"
+    ) {
+        return;
+    }
+
+    try {
+        const cache = await caches.open(CACHE_NAME);
+        await cache.put(request, response.clone());
+    } catch (error) {
+        console.warn(
+            "No se pudo guardar el recurso en caché:",
+            request.url,
+            error
+        );
+    }
+}
+
+async function getOfflinePage() {
+    const cache = await caches.open(CACHE_NAME);
+
+    return (
+        await cache.match("./index.html") ||
+        await caches.match("./index.html")
+    );
+}
+
 self.addEventListener("install", event => {
     event.waitUntil(
         caches.open(CACHE_NAME)
             .then(cache => cache.addAll(APP_SHELL))
-            .then(() => self.skipWaiting())
+            .catch(async error => {
+                // No se activa una versión incompleta.
+                await caches.delete(CACHE_NAME);
+                throw error;
+            })
     );
 });
 
@@ -87,10 +135,9 @@ self.addEventListener("activate", event => {
         caches.keys()
             .then(keys => Promise.all(
                 keys
-                    .filter(
-                        key =>
-                            key.startsWith("contador-cup-") &&
-                            key !== CACHE_NAME
+                    .filter(key =>
+                        key.startsWith(APP_CACHE_PREFIX) &&
+                        key !== CACHE_NAME
                     )
                     .map(key => caches.delete(key))
             ))
@@ -101,39 +148,36 @@ self.addEventListener("activate", event => {
 self.addEventListener("fetch", event => {
     const request = event.request;
 
-    if (request.method !== "GET") {
+    if (!isAppRequest(request)) {
         return;
     }
 
     const url = new URL(request.url);
 
-    if (url.origin !== self.location.origin) {
-        return;
-    }
-
+    // Las páginas se solicitan primero a la red para
+    // detectar versiones nuevas y se recuperan de caché sin conexión.
     if (request.mode === "navigate") {
         event.respondWith(
             fetch(request)
-                .then(response => {
-                    if (response && response.ok) {
-                        const copy = response.clone();
-
-                        caches.open(CACHE_NAME).then(cache => {
-                            cache.put("./index.html", copy);
-                        });
+                .then(async response => {
+                    if (response.ok) {
+                        await cacheResponse(
+                            "./index.html",
+                            response
+                        );
                     }
 
                     return response;
                 })
                 .catch(async () => {
-                    const cachedPage = await caches.match("./index.html");
+                    const cachedPage = await getOfflinePage();
 
                     if (cachedPage) {
                         return cachedPage;
                     }
 
                     return new Response(
-                        "La aplicación no está disponible sin conexión. Abre Contador CUP al menos una vez con Internet.",
+                        "Contador CUP no está disponible sin conexión. Abre la aplicación al menos una vez con Internet.",
                         {
                             status: 503,
                             headers: {
@@ -147,28 +191,30 @@ self.addEventListener("fetch", event => {
         return;
     }
 
+    // No se interceptan solicitudes ajenas a la aplicación.
+    if (url.origin !== self.location.origin) {
+        return;
+    }
+
     event.respondWith(
         caches.match(request)
-            .then(cachedResponse => {
+            .then(async cachedResponse => {
                 if (cachedResponse) {
                     return cachedResponse;
                 }
 
-                return fetch(request).then(response => {
-                    if (
-                        response &&
-                        response.ok &&
-                        response.type === "basic"
-                    ) {
-                        const copy = response.clone();
+                try {
+                    const response = await fetch(request);
 
-                        caches.open(CACHE_NAME).then(cache => {
-                            cache.put(request, copy);
-                        });
+                    if (response.ok) {
+                        await cacheResponse(request, response);
                     }
 
                     return response;
-                });
+                } catch (error) {
+                    // Evita devolver una respuesta vacía o falsa.
+                    throw error;
+                }
             })
     );
 });
@@ -176,23 +222,28 @@ self.addEventListener("fetch", event => {
 self.addEventListener("message", event => {
     const message = event.data;
 
-    if (!message || typeof message.type !== "string") {
+    if (
+        !message ||
+        typeof message.type !== "string"
+    ) {
         return;
     }
 
     if (message.type === "SKIP_WAITING") {
-        self.skipWaiting();
+        event.waitUntil(self.skipWaiting());
+        return;
     }
 
     if (message.type === "CLEAR_APP_CACHE") {
         event.waitUntil(
-            caches.keys().then(keys =>
-                Promise.all(
+            caches.keys()
+                .then(keys => Promise.all(
                     keys
-                        .filter(key => key.startsWith("contador-cup-"))
+                        .filter(key =>
+                            key.startsWith(APP_CACHE_PREFIX)
+                        )
                         .map(key => caches.delete(key))
-                )
-            )
+                ))
         );
     }
 });
